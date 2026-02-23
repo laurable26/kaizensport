@@ -15,7 +15,7 @@ const RUNNING_NAV = [
   { to: '/running', icon: Footprints, label: 'Course' },
   { to: '/running/active', icon: MapPin, label: 'En cours' },
   { to: '/schedule', icon: Calendar, label: 'Planning' },
-  { to: '/profile', icon: User, label: 'Profil' },
+  { to: '/friends', icon: Users, label: 'Amis' },
 ]
 
 export default function BottomNav() {

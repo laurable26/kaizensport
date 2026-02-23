@@ -16,13 +16,14 @@ import {
 import { useAppModeStore } from '@/store/appModeStore'
 import { useRunningStore } from '@/store/runningStore'
 import { useAuth } from '@/hooks/useAuth'
-import { UserPlus, UserCheck, UserX, Search, Users, Bell, Footprints, Mail } from 'lucide-react'
+import { UserPlus, UserCheck, UserX, Search, Users, Bell, Footprints, Share2, Copy, Check as CheckIcon } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useNavigate } from 'react-router-dom'
 
 export default function FriendsPage() {
   const [tab, setTab] = useState<'friends' | 'add'>('friends')
   const [searchEmail, setSearchEmail] = useState('')
+  const [copied, setCopied] = useState(false)
   const navigate = useNavigate()
   const mode = useAppModeStore((s) => s.mode)
   const { isActive: isRunActive, runLogId } = useRunningStore()
@@ -309,33 +310,76 @@ export default function FriendsPage() {
               </button>
             </form>
 
-            {searchProfile.data === null && searchProfile.isSuccess && (
-              <div className="bg-[var(--color-surface)] rounded-2xl p-4 space-y-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-[var(--color-surface-2)] flex items-center justify-center flex-shrink-0">
-                    <Mail size={18} className="text-[var(--color-text-muted)]" />
+            {searchProfile.data === null && searchProfile.isSuccess && (() => {
+              const inviteText = `${senderName} t'invite à rejoindre Kaizen Sport, l'appli de suivi d'entraînement 💪\n\n👉 ${window.location.origin}`
+
+              const handleShare = async () => {
+                if (navigator.share) {
+                  try {
+                    await navigator.share({
+                      title: 'Kaizen Sport',
+                      text: inviteText,
+                    })
+                  } catch {
+                    // Annulé par l'utilisateur, on ne fait rien
+                  }
+                } else {
+                  // Fallback : copier dans le presse-papier
+                  await navigator.clipboard.writeText(inviteText)
+                  setCopied(true)
+                  toast.success('Texte copié !')
+                  setTimeout(() => setCopied(false), 2500)
+                }
+              }
+
+              return (
+                <div className="bg-[var(--color-surface)] rounded-2xl p-4 space-y-3">
+                  {/* Identité */}
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-[var(--color-surface-2)] flex items-center justify-center flex-shrink-0">
+                      <Share2 size={18} className="text-[var(--color-text-muted)]" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm truncate">{searchEmail}</p>
+                      <p className="text-xs text-[var(--color-text-muted)]">Pas encore sur Kaizen Sport</p>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm truncate">{searchEmail}</p>
-                    <p className="text-xs text-[var(--color-text-muted)]">Pas encore sur Kaizen Sport</p>
+
+                  {/* Aperçu du message */}
+                  <div className="bg-[var(--color-surface-2)] rounded-xl px-3 py-2.5 text-xs text-[var(--color-text-muted)] leading-relaxed whitespace-pre-line">
+                    {inviteText}
+                  </div>
+
+                  {/* Boutons d'action */}
+                  <div className="flex gap-2">
+                    {/* Partager (natif : iMessage, WhatsApp, Instagram, email...) */}
+                    <button
+                      onClick={handleShare}
+                      className="flex-1 flex items-center justify-center gap-2 bg-[var(--color-accent)] text-white font-semibold py-3 rounded-xl active-scale text-sm"
+                    >
+                      <Share2 size={15} />
+                      Partager
+                    </button>
+                    {/* Copier le texte */}
+                    <button
+                      onClick={async () => {
+                        await navigator.clipboard.writeText(inviteText)
+                        setCopied(true)
+                        toast.success('Copié !')
+                        setTimeout(() => setCopied(false), 2500)
+                      }}
+                      className={`w-12 flex items-center justify-center rounded-xl active-scale transition-colors ${
+                        copied
+                          ? 'bg-[var(--color-success)] text-white'
+                          : 'bg-[var(--color-surface-2)] text-[var(--color-text-muted)]'
+                      }`}
+                    >
+                      {copied ? <CheckIcon size={16} /> : <Copy size={16} />}
+                    </button>
                   </div>
                 </div>
-                <button
-                  onClick={() => {
-                    const subject = encodeURIComponent(`${senderName} t'invite sur Kaizen Sport`)
-                    const body = encodeURIComponent(
-                      `Bonjour !\n\n${senderName} t'invite à rejoindre Kaizen Sport, l'application de suivi d'entraînement.\n\nTélécharge-la ici : ${window.location.origin}\n\nÀ bientôt sur l'appli !`
-                    )
-                    window.open(`mailto:${searchEmail}?subject=${subject}&body=${body}`, '_blank')
-                    toast.success('Invitation ouverte dans ta messagerie !')
-                  }}
-                  className="w-full flex items-center justify-center gap-2 bg-[var(--color-accent)] text-white font-semibold py-3 rounded-xl active-scale text-sm"
-                >
-                  <Mail size={16} />
-                  Inviter {searchEmail} par email
-                </button>
-              </div>
-            )}
+              )
+            })()}
 
             {searchProfile.data && (
               <div className="bg-[var(--color-surface)] rounded-2xl p-4 flex items-center gap-3">
