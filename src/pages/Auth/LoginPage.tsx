@@ -25,8 +25,17 @@ export default function LoginPage() {
       })
       if (error) throw error
       setStep('verify')
-    } catch {
-      toast.error("Erreur lors de l'envoi du lien.")
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err)
+      if (msg.toLowerCase().includes('signup') || msg.toLowerCase().includes('signups')) {
+        toast.error("Les inscriptions sont désactivées. Contacte l'administrateur.")
+      } else if (msg.toLowerCase().includes('rate limit') || msg.toLowerCase().includes('too many')) {
+        toast.error('Trop de tentatives. Attends quelques minutes.')
+      } else if (msg.toLowerCase().includes('invalid email')) {
+        toast.error('Adresse e-mail invalide.')
+      } else {
+        toast.error(msg || "Impossible d'envoyer le lien.")
+      }
     } finally {
       setSubmitting(false)
     }

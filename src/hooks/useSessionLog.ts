@@ -48,7 +48,9 @@ export function useStartSessionLog() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (sessionId: string) => {
-      const { data: { user } } = await supabase.auth.getUser()
+      // getSession() lit le token depuis le cache local (pas de requête réseau)
+      const { data: { session } } = await supabase.auth.getSession()
+      const user = session?.user
       if (!user) throw new Error('Not authenticated')
 
       const { data, error } = await supabase

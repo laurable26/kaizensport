@@ -105,7 +105,8 @@ export function useSendFriendRequest() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (targetUserId: string) => {
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { session: authSession } } = await supabase.auth.getSession()
+      const user = authSession?.user
       if (!user) throw new Error('Non authentifié')
 
       const [uid1, uid2] = [user.id, targetUserId].sort()
@@ -156,7 +157,8 @@ export function useInviteToSession() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({ sessionLogId, inviteeId }: { sessionLogId: string; inviteeId: string }) => {
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { session: authSession } } = await supabase.auth.getSession()
+      const user = authSession?.user
       if (!user) throw new Error('Non authentifié')
 
       const { error } = await supabase.from('session_invites').insert({
@@ -175,7 +177,8 @@ export function useInviteToRun() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({ runLogId, inviteeId }: { runLogId: string; inviteeId: string }) => {
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { session: authSession } } = await supabase.auth.getSession()
+      const user = authSession?.user
       if (!user) throw new Error('Non authentifié')
 
       const { error } = await supabase.from('run_invites').insert({

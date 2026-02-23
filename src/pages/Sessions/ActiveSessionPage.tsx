@@ -221,13 +221,13 @@ export default function ActiveSessionPage() {
             />
           </div>
         ) : (
-          <div className="bg-[var(--color-success)]/10 border border-[var(--color-success)]/30 rounded-2xl p-5 text-center space-y-3">
-            <CheckCircle size={32} className="mx-auto text-[var(--color-success)]" />
+          <div className="bg-[var(--color-accent)]/10 border border-[var(--color-accent)]/30 rounded-2xl p-5 text-center space-y-3">
+            <CheckCircle size={32} className="mx-auto text-[var(--color-accent)]" />
             <p className="font-semibold">Exercice terminé !</p>
             {currentExerciseIndex < exercises.length - 1 && (
               <button
                 onClick={nextExercise}
-                className="bg-[var(--color-success)] text-white font-semibold px-6 py-3 rounded-xl active-scale"
+                className="bg-[var(--color-accent)] text-white font-semibold px-6 py-3 rounded-xl active-scale"
               >
                 Exercice suivant
               </button>

@@ -58,7 +58,8 @@ export function useCreateRunningSession() {
       session: Omit<RunningSessionInsert, 'user_id'>
       blocks: Omit<RunningIntervalBlockInsert, 'running_session_id'>[]
     }) => {
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { session: authSession } } = await supabase.auth.getSession()
+      const user = authSession?.user
       if (!user) throw new Error('Not authenticated')
 
       const { data: newSession, error } = await supabase
@@ -177,7 +178,8 @@ export function useStartRunningLog() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (runningSessionId: string | null) => {
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { session: authSession } } = await supabase.auth.getSession()
+      const user = authSession?.user
       if (!user) throw new Error('Not authenticated')
 
       const { data, error } = await supabase
@@ -265,7 +267,8 @@ export function useCheckAndSavePR() {
       distanceM: number
       durationS: number
     }) => {
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { session: authSession } } = await supabase.auth.getSession()
+      const user = authSession?.user
       if (!user) return [] as string[]
 
       const newPRs: string[] = []
