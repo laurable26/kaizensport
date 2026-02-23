@@ -4,7 +4,7 @@ import { useThemeStore } from '@/store/themeStore'
 import { useAppModeStore } from '@/store/appModeStore'
 import PageHeader from '@/components/layout/PageHeader'
 import { Bell, BellOff, LogOut, User, ChevronRight, Sun, Moon, Pencil, Check, X, Shield, Camera, Mail, Dumbbell, Footprints } from 'lucide-react'
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { supabase } from '@/lib/supabase'
@@ -33,11 +33,26 @@ export default function ProfilePage() {
   const [emailSent, setEmailSent] = useState(false)
 
   // Photo
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(
-    user?.user_metadata?.avatar_url ?? null
-  )
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // On mount : si avatar_url est un path (pas une URL http), on génère une signed URL
+  useEffect(() => {
+    const rawPath = user?.user_metadata?.avatar_url
+    if (!rawPath) return
+    if (rawPath.startsWith('http')) {
+      setAvatarUrl(rawPath)
+      return
+    }
+    supabase.storage
+      .from('profile-photos')
+      .createSignedUrl(rawPath, 60 * 60 * 24)
+      .then(({ data }) => {
+        if (data?.signedUrl) setAvatarUrl(data.signedUrl)
+      })
+      .catch(() => {/* silencieux */})
+  }, [user?.user_metadata?.avatar_url])
 
   const permission = getPermissionStatus()
   const currentName = user?.user_metadata?.full_name ?? user?.user_metadata?.name ?? ''
