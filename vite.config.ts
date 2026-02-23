@@ -16,6 +16,11 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['icons/*.svg'],
+      // Mode injectManifest : on fournit notre propre SW source
+      // qui gère les push notifications + Workbox precache
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
       manifest: {
         name: 'Kaizen Sport',
         short_name: 'Kaizen',
@@ -41,34 +46,8 @@ export default defineConfig({
           },
         ],
       },
-      workbox: {
-        skipWaiting: true,
-        clientsClaim: true,
+      injectManifest: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/.*\.supabase\.co\/rest\/v1\/exercises/,
-            handler: 'StaleWhileRevalidate',
-            options: {
-              cacheName: 'exercises-cache',
-              expiration: {
-                maxEntries: 500,
-                maxAgeSeconds: 86400,
-              },
-            },
-          },
-          {
-            urlPattern: /^https:\/\/.*\.supabase\.co\/storage\/v1\//,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'photos-cache',
-              expiration: {
-                maxEntries: 200,
-                maxAgeSeconds: 604800,
-              },
-            },
-          },
-        ],
       },
     }),
   ],
