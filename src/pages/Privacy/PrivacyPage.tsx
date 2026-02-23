@@ -44,7 +44,7 @@ export default function PrivacyPage() {
             <img src="/icons/logo.svg" alt="Kaizen Sport" className="w-7 h-7 invert opacity-70" />
           </div>
           <h1 className="text-xl font-black">Politique de confidentialité</h1>
-          <p className="text-xs text-[var(--color-text-muted)]">Dernière mise à jour : 23 février 2026</p>
+          <p className="text-xs text-[var(--color-text-muted)]">Dernière mise à jour : 24 février 2026</p>
         </div>
 
         {[
@@ -56,45 +56,50 @@ export default function PrivacyPage() {
           {
             title: '2. Données collectées',
             content:
-              "Nous collectons uniquement les données nécessaires au fonctionnement de l'application :\n\n• Adresse e-mail (pour l'authentification)\n• Nom d'affichage (optionnel, défini par vous)\n• Photo de profil (optionnelle)\n• Données d'entraînement : exercices, séances, séries, poids, répétitions, ressentis\n• Photos des exercices (stockées dans votre espace privé)\n• Planning de séances\n• Abonnements aux notifications push",
+              "Nous collectons uniquement les données nécessaires au fonctionnement de l'application :\n\n• Adresse e-mail (pour l'authentification)\n• Nom d'affichage (optionnel, défini par vous)\n• Photo de profil (optionnelle)\n• Données de musculation : exercices, séances, séries, poids, répétitions, ressentis, planning\n• Données de course à pied : tracés GPS, distance, durée, allure, dénivelé, ressenti\n• Records personnels de course (5 km, 10 km, semi-marathon, marathon)\n• Photos des exercices (stockées dans votre espace privé)\n• Abonnements aux notifications push",
           },
           {
-            title: '3. Comment sont utilisées vos données ?',
+            title: '3. Données de localisation (GPS)',
             content:
-              "Vos données sont utilisées exclusivement pour :\n• Afficher votre historique et progression\n• Envoyer des rappels de séances (si activé)\n• Partager des séances avec vos amis (si vous l'autorisez)\n\nVos données ne sont jamais vendues, ni partagées avec des tiers à des fins publicitaires.",
+              "Le mode Course utilise la géolocalisation de votre appareil pendant vos sorties :\n\n• La localisation n'est active que lorsque vous lancez une course\n• Le tracé GPS (latitude, longitude, altitude, vitesse) est enregistré uniquement si vous terminez et sauvegardez la course\n• Les données GPS sont stockées dans votre compte personnel et ne sont pas partagées\n• Vous pouvez refuser l'accès GPS : la course fonctionnera sans tracé ni statistiques de distance\n• La permission GPS peut être révoquée à tout moment depuis les paramètres de votre navigateur",
           },
           {
-            title: '4. Stockage et sécurité',
+            title: '4. Comment sont utilisées vos données ?',
             content:
-              "Vos données sont hébergées sur Supabase (infrastructure cloud basée en Europe) avec :\n• Chiffrement en transit (HTTPS/TLS)\n• Isolation par utilisateur via Row Level Security (RLS)\n• Authentification sécurisée par lien magique (sans mot de passe)",
+              "Vos données sont utilisées exclusivement pour :\n• Afficher votre historique et progression (musculation et course)\n• Calculer vos records personnels et statistiques\n• Envoyer des rappels de séances planifiées (si activé)\n• Partager des séances ou courses avec vos amis (si vous l'autorisez)\n\nVos données ne sont jamais vendues, ni partagées avec des tiers à des fins publicitaires.",
           },
           {
-            title: '5. Partage avec des tiers',
+            title: '5. Stockage et sécurité',
             content:
-              "Nous utilisons les services tiers suivants :\n• Supabase — hébergement base de données et authentification (https://supabase.com)\n\nCes services disposent de leurs propres politiques de confidentialité.",
+              "Vos données sont hébergées sur Supabase (infrastructure cloud basée en Europe) avec :\n• Chiffrement en transit (HTTPS/TLS)\n• Isolation par utilisateur via Row Level Security (RLS)\n• Authentification sécurisée par lien magique (sans mot de passe)\n• Les tracés GPS sont stockés de façon chiffrée et ne sont accessibles que par vous",
           },
           {
-            title: '6. Vos droits (RGPD)',
+            title: '6. Partage avec des tiers',
             content:
-              "Conformément au RGPD, vous disposez des droits suivants :\n• Accès à vos données\n• Rectification (modifier votre nom, email depuis le Profil)\n• Suppression de votre compte et de toutes vos données (bouton ci-dessous)\n• Portabilité de vos données\n\nLa suppression de compte est irréversible et efface immédiatement toutes vos données.",
+              "Nous utilisons les services tiers suivants :\n• Supabase — hébergement base de données, authentification et stockage fichiers (https://supabase.com)\n• Vercel — hébergement de l'application web (https://vercel.com)\n\nAucune donnée GPS ou de santé n'est transmise à ces services au-delà du stockage nécessaire. Ces services disposent de leurs propres politiques de confidentialité.",
           },
           {
-            title: '7. Cookies et stockage local',
+            title: '7. Vos droits (RGPD)',
             content:
-              "L'application utilise le stockage local du navigateur (localStorage) uniquement pour :\n• Maintenir votre session de connexion\n• Mémoriser votre préférence de thème (clair/sombre)\n\nAucun cookie de suivi ou de publicité n'est utilisé.",
+              "Conformément au RGPD, vous disposez des droits suivants :\n• Accès à vos données (historique, tracés GPS, records)\n• Rectification (modifier votre nom, email depuis le Profil)\n• Suppression de votre compte et de toutes vos données, y compris les tracés GPS (bouton ci-dessous)\n• Portabilité de vos données\n• Retrait du consentement GPS à tout moment\n\nLa suppression de compte est irréversible et efface immédiatement toutes vos données.",
           },
           {
-            title: '8. Notifications push',
+            title: '8. Cookies et stockage local',
+            content:
+              "L'application utilise le stockage local du navigateur (localStorage) uniquement pour :\n• Maintenir votre session de connexion\n• Mémoriser votre préférence de thème (clair/sombre)\n• Mémoriser votre mode sport sélectionné (musculation/course)\n\nAucun cookie de suivi ou de publicité n'est utilisé.",
+          },
+          {
+            title: '9. Notifications push',
             content:
               "Si vous activez les notifications push, un abonnement est enregistré pour vous envoyer des rappels de séances planifiées. Vous pouvez désactiver les notifications à tout moment depuis les paramètres de votre navigateur ou de l'application.",
           },
           {
-            title: '9. Mineurs',
+            title: '10. Mineurs',
             content:
               "Kaizen Sport est destiné aux personnes de 16 ans et plus. Nous ne collectons pas sciemment de données concernant des mineurs de moins de 16 ans.",
           },
           {
-            title: '10. Modifications',
+            title: '11. Modifications',
             content:
               "Cette politique peut être mise à jour. En cas de modification importante, vous serez informé via l'application. La date de dernière mise à jour est indiquée en haut de cette page.",
           },
@@ -114,7 +119,7 @@ export default function PrivacyPage() {
           </div>
           <div className="p-5 space-y-3">
             <p className="text-sm text-[var(--color-text-muted)]">
-              La suppression de votre compte est <strong>définitive et irréversible</strong>. Toutes vos données seront effacées : séances, exercices, planning, historique, photos.
+              La suppression de votre compte est <strong>définitive et irréversible</strong>. Toutes vos données seront effacées : séances, exercices, planning, historique, photos, courses, tracés GPS et records personnels.
             </p>
             <button
               onClick={() => setShowDeleteModal(true)}

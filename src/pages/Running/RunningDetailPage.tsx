@@ -121,7 +121,7 @@ export default function RunningDetailPage() {
             <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
               session.type === 'interval'
                 ? 'bg-[var(--color-accent)]/15 text-[var(--color-accent)]'
-                : 'bg-[var(--color-success)]/15 text-[var(--color-success)]'
+                : 'bg-[var(--color-accent)]/15 text-[var(--color-accent)]'
             }`}>
               {session.type === 'free' ? <Footprints size={20} />
                 : session.type === 'distance' ? <MapPin size={20} />
@@ -176,7 +176,7 @@ export default function RunningDetailPage() {
                 .map((block, i) => (
                   <div key={i} className="flex items-center gap-3 px-4 py-3">
                     <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                      block.phase === 'work' ? 'bg-[var(--color-accent)]' : 'bg-[var(--color-success)]'
+                      block.phase === 'work' ? 'bg-[var(--color-accent)]' : 'bg-[var(--color-accent)]'
                     }`} />
                     <div className="flex-1 min-w-0">
                       <span className="text-sm">{block.label ?? (block.phase === 'work' ? 'Travail' : 'Repos')}</span>
@@ -217,7 +217,7 @@ export default function RunningDetailPage() {
         <button
           onClick={handleStart}
           disabled={startRunningLog.isPending}
-          className="w-full bg-[var(--color-success)] text-white font-bold py-4 rounded-xl active-scale flex items-center justify-center gap-2 text-base"
+          className="w-full bg-[var(--color-accent)] text-white font-bold py-4 rounded-xl active-scale flex items-center justify-center gap-2 text-base"
         >
           <Play size={20} />
           {startRunningLog.isPending ? 'Démarrage...' : 'Lancer la course'}

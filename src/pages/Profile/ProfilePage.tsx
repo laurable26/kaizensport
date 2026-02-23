@@ -133,7 +133,7 @@ export default function ProfilePage() {
     if (user) {
       syncToSupabase(user.id, newMode).catch(() => {})
     }
-    toast.success(newMode === 'running' ? '🏃 Mode Course activé' : '💪 Mode Musculation activé')
+    toast.success(newMode === 'running' ? 'Mode Course activé' : '💪 Mode Musculation activé')
     setSwitchingMode(false)
   }
 
@@ -374,16 +374,16 @@ export default function ProfilePage() {
               disabled={switchingMode}
               className={`flex flex-col items-center gap-2 py-4 rounded-xl border-2 transition-all active-scale ${
                 mode === 'running'
-                  ? 'border-[var(--color-success)] bg-[var(--color-success)]/10'
+                  ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/10'
                   : 'border-[var(--color-border)] bg-[var(--color-surface-2)]'
               }`}
             >
-              <Footprints size={24} className={mode === 'running' ? 'text-[var(--color-success)]' : 'text-[var(--color-text-muted)]'} />
-              <span className={`text-sm font-semibold ${mode === 'running' ? 'text-[var(--color-success)]' : 'text-[var(--color-text-muted)]'}`}>
+              <Footprints size={24} className={mode === 'running' ? 'text-[var(--color-accent)]' : 'text-[var(--color-text-muted)]'} />
+              <span className={`text-sm font-semibold ${mode === 'running' ? 'text-[var(--color-accent)]' : 'text-[var(--color-text-muted)]'}`}>
                 Course
               </span>
               {mode === 'running' && (
-                <span className="text-xs text-[var(--color-success)]">● Actif</span>
+                <span className="text-xs text-[var(--color-accent)]">● Actif</span>
               )}
             </button>
           </div>

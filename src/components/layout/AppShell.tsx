@@ -45,10 +45,10 @@ export default function AppShell() {
       {isRunActive && !isSessionActive && (
         <button
           onClick={() => navigate('/running/active')}
-          className="w-full bg-[var(--color-success)] text-white text-sm font-semibold py-2 px-4 text-center active-scale z-50 sticky top-0"
+          className="w-full bg-[var(--color-accent)] text-white text-sm font-semibold py-2 px-4 text-center active-scale z-50 sticky top-0"
           style={{ paddingTop: `calc(var(--safe-area-top) + 0.5rem)` }}
         >
-          🏃 Course en cours : {runName || 'Course libre'} — Reprendre
+          Course en cours : {runName || 'Course libre'} — Reprendre
         </button>
       )}
 

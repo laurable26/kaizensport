@@ -76,7 +76,7 @@ function MiniMap({ gpsTrack }: { gpsTrack: { lat: number; lng: number }[] | null
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-full">
-      <path d={d} fill="none" stroke="var(--color-success)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d={d} fill="none" stroke="var(--color-accent)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }
@@ -230,7 +230,7 @@ export default function RunningHistoryPage() {
                       {log.started_at ? format(parseISO(log.started_at), 'd MMM yyyy', { locale: fr }) : ''}
                     </p>
                     <div className="flex items-center gap-3 mt-1.5">
-                      <span className="text-xs font-bold text-[var(--color-success)]">
+                      <span className="text-xs font-bold text-[var(--color-accent)]">
                         {formatDistance(log.distance_m)}
                       </span>
                       <span className="text-xs text-[var(--color-text-muted)]">

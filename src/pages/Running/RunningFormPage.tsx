@@ -53,7 +53,7 @@ function BlockEditor({
 }) {
   return (
     <div className={`bg-[var(--color-surface-2)] rounded-xl p-4 space-y-3 border-l-4 ${
-      block.phase === 'work' ? 'border-[var(--color-accent)]' : 'border-[var(--color-success)]'
+      block.phase === 'work' ? 'border-[var(--color-accent)]' : 'border-[var(--color-accent)]'
     }`}>
       <div className="flex items-center gap-2">
         <GripVertical size={16} className="text-[var(--color-text-muted)]" />
@@ -77,7 +77,7 @@ function BlockEditor({
               block.phase === p
                 ? p === 'work'
                   ? 'bg-[var(--color-accent)] text-white'
-                  : 'bg-[var(--color-success)] text-white'
+                  : 'bg-[var(--color-accent)] text-white'
                 : 'text-[var(--color-text-muted)]'
             }`}
           >
@@ -256,7 +256,7 @@ export default function RunningFormPage() {
   }
 
   const TYPE_OPTIONS: { value: RunType; label: string; desc: string }[] = [
-    { value: 'free', label: '🏃 Libre', desc: 'Sans objectif' },
+    { value: 'free', label: 'Libre', desc: 'Sans objectif' },
     { value: 'distance', label: '📍 Distance', desc: 'Objectif km' },
     { value: 'duration', label: '⏱ Durée', desc: 'Objectif temps' },
     { value: 'interval', label: '⚡ Fractionné', desc: 'Blocs intervalles' },

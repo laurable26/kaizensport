@@ -1,8 +1,11 @@
 import { useNavigate } from 'react-router-dom'
-import { useRunningSessions, useDeleteRunningSession } from '@/hooks/useRunning'
+import { useRunningSessions, useDeleteRunningSession, useStartRunningLog } from '@/hooks/useRunning'
+import { useRunningStore } from '@/store/runningStore'
 import PageHeader from '@/components/layout/PageHeader'
 import { Plus, Footprints, ChevronRight, Trash2, Timer, MapPin, Zap } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { format } from 'date-fns'
+import { fr } from 'date-fns/locale'
 import type { RunningSession } from '@/types/database'
 
 const TYPE_LABELS: Record<string, string> = {
@@ -41,6 +44,8 @@ export default function RunningPage() {
   const navigate = useNavigate()
   const { data: sessions = [], isLoading } = useRunningSessions()
   const deleteSession = useDeleteRunningSession()
+  const startRunningLog = useStartRunningLog()
+  const startRun = useRunningStore((s) => s.startRun)
 
   const handleDelete = async (id: string, name: string) => {
     if (!confirm(`Supprimer "${name}" ?`)) return
@@ -52,18 +57,36 @@ export default function RunningPage() {
     }
   }
 
+  const handleFreeRun = async () => {
+    try {
+      const sessionName = `Course libre — ${format(new Date(), 'd MMMM yyyy', { locale: fr })}`
+      const log = await startRunningLog.mutateAsync(null)
+      startRun({
+        runLogId: log.id,
+        runningSessionId: null,
+        sessionName,
+        sessionType: 'free',
+        blocks: [],
+      })
+      navigate('/running/active')
+    } catch {
+      toast.error('Erreur lors du démarrage')
+    }
+  }
+
   return (
     <div>
       <PageHeader title="Course à pied" />
 
       <div className="px-4 py-4 space-y-3">
-        {/* Quick start */}
+        {/* Quick start — course libre auto */}
         <button
-          onClick={() => navigate('/running/new')}
-          className="w-full bg-[var(--color-success)] text-white font-bold py-4 rounded-2xl active-scale flex items-center justify-center gap-2 text-base"
+          onClick={handleFreeRun}
+          disabled={startRunningLog.isPending}
+          className="w-full bg-[var(--color-accent)] text-white font-bold py-4 rounded-2xl active-scale flex items-center justify-center gap-2 text-base disabled:opacity-60"
         >
           <Footprints size={20} />
-          Course libre
+          {startRunningLog.isPending ? 'Démarrage...' : 'Course libre'}
         </button>
 
         {/* Plans list */}
@@ -106,7 +129,7 @@ export default function RunningPage() {
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
                     session.type === 'interval'
                       ? 'bg-[var(--color-accent)]/15 text-[var(--color-accent)]'
-                      : 'bg-[var(--color-success)]/15 text-[var(--color-success)]'
+                      : 'bg-[var(--color-accent)]/15 text-[var(--color-accent)]'
                   }`}>
                     {TYPE_ICONS[session.type]}
                   </div>

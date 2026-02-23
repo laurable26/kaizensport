@@ -7,25 +7,36 @@ import {
   useSendFriendRequest,
   useRespondFriendRequest,
   useRemoveFriend,
+  useSessionInvites,
+  useRespondSessionInvite,
+  useRunInvites,
+  useRespondRunInvite,
+  useInviteToRun,
 } from '@/hooks/useFriends'
-import { UserPlus, UserCheck, UserX, Search, Users, Bell } from 'lucide-react'
+import { useAppModeStore } from '@/store/appModeStore'
+import { useRunningStore } from '@/store/runningStore'
+import { UserPlus, UserCheck, UserX, Search, Users, Bell, Footprints } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { useSessionInvites, useRespondSessionInvite } from '@/hooks/useFriends'
 import { useNavigate } from 'react-router-dom'
 
 export default function FriendsPage() {
   const [tab, setTab] = useState<'friends' | 'add'>('friends')
   const [searchEmail, setSearchEmail] = useState('')
   const navigate = useNavigate()
+  const mode = useAppModeStore((s) => s.mode)
+  const { isActive: isRunActive, runLogId } = useRunningStore()
 
   const { data: friends = [] } = useFriends()
   const { data: pendingRequests = [] } = usePendingRequests()
   const { data: sessionInvites = [] } = useSessionInvites()
+  const { data: runInvites = [] } = useRunInvites()
   const searchProfile = useSearchProfile()
   const sendRequest = useSendFriendRequest()
   const respondRequest = useRespondFriendRequest()
   const removeFriend = useRemoveFriend()
   const respondInvite = useRespondSessionInvite()
+  const respondRunInvite = useRespondRunInvite()
+  const inviteToRun = useInviteToRun()
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -72,11 +83,20 @@ export default function FriendsPage() {
     }
   }
 
+  const handleAcceptRunInvite = async (id: string) => {
+    try {
+      await respondRunInvite.mutateAsync({ id, accept: true })
+      navigate('/running/history')
+    } catch {
+      toast.error('Erreur')
+    }
+  }
+
   return (
     <div>
       <PageHeader title="Amis" />
 
-      {/* Session invites banner */}
+      {/* Session invites banner (musculation) */}
       {sessionInvites.length > 0 && (
         <div className="mx-4 mt-3 space-y-2">
           {sessionInvites.map((invite) => (
@@ -96,6 +116,38 @@ export default function FriendsPage() {
                     </button>
                     <button
                       onClick={() => respondInvite.mutateAsync({ id: invite.id, accept: false })}
+                      className="flex-1 bg-[var(--color-surface)] text-[var(--color-text-muted)] text-xs font-semibold py-2 rounded-lg active-scale"
+                    >
+                      Ignorer
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Run invites banner (course) */}
+      {runInvites.length > 0 && (
+        <div className="mx-4 mt-3 space-y-2">
+          {runInvites.map((invite) => (
+            <div key={invite.id} className="bg-[var(--color-accent)]/10 border border-[var(--color-accent)]/30 rounded-2xl p-4">
+              <div className="flex items-start gap-3">
+                <Footprints size={18} className="text-[var(--color-accent)] mt-0.5 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold">
+                    {(invite.inviter as any)?.full_name ?? (invite.inviter as any)?.email ?? 'Quelqu\'un'} vous invite à suivre sa course
+                  </p>
+                  <div className="flex gap-2 mt-2">
+                    <button
+                      onClick={() => handleAcceptRunInvite(invite.id)}
+                      className="flex-1 bg-[var(--color-accent)] text-white text-xs font-semibold py-2 rounded-lg active-scale"
+                    >
+                      Voir la course
+                    </button>
+                    <button
+                      onClick={() => respondRunInvite.mutateAsync({ id: invite.id, accept: false })}
                       className="flex-1 bg-[var(--color-surface)] text-[var(--color-text-muted)] text-xs font-semibold py-2 rounded-lg active-scale"
                     >
                       Ignorer
@@ -167,6 +219,25 @@ export default function FriendsPage() {
                       <p className="text-xs text-[var(--color-text-muted)] truncate">{f.friend.email}</p>
                     )}
                   </div>
+                  {/* Inviter sur le run en cours */}
+                  {mode === 'running' && isRunActive && runLogId && (
+                    <button
+                      onClick={async () => {
+                        if (!f.friend?.id) return
+                        try {
+                          await inviteToRun.mutateAsync({ runLogId, inviteeId: f.friend.id })
+                          toast.success(`Invitation envoyée à ${f.friend?.full_name ?? f.friend?.email}`)
+                        } catch {
+                          toast.error('Erreur')
+                        }
+                      }}
+                      disabled={inviteToRun.isPending}
+                      className="p-2 text-[var(--color-accent)] active-scale"
+                      title="Inviter sur ce run"
+                    >
+                      <Footprints size={16} />
+                    </button>
+                  )}
                   <button
                     onClick={() => handleRemove(f.id)}
                     className="p-2 text-[var(--color-text-muted)] active-scale"

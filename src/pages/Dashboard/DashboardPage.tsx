@@ -3,11 +3,13 @@ import { fr } from 'date-fns/locale'
 import { useAuth } from '@/hooks/useAuth'
 import { useSessionLogs } from '@/hooks/useSessionLog'
 import { useWeekSchedule, useSkippedSessions } from '@/hooks/useSchedule'
-import { useRunningStats, useRunningPRs } from '@/hooks/useRunning'
+import { useRunningStats, useRunningPRs, useStartRunningLog } from '@/hooks/useRunning'
 import { useRunningStore } from '@/store/runningStore'
 import { useAppModeStore } from '@/store/appModeStore'
 import { useNavigate } from 'react-router-dom'
 import { Play, Calendar, Dumbbell, User, Footprints, Trophy, TrendingUp, MapPin } from 'lucide-react'
+import { format as formatDate } from 'date-fns'
+import { fr as frLocale } from 'date-fns/locale'
 
 function formatMinutes(minutes: number): string {
   if (minutes < 60) return `${minutes} min`
@@ -29,6 +31,19 @@ function RunningDashboard({ displayName }: { displayName: string }) {
   const { data: stats } = useRunningStats()
   const { data: prs = [] } = useRunningPRs()
   const { isActive } = useRunningStore()
+  const startRunningLog = useStartRunningLog()
+  const startRun = useRunningStore((s) => s.startRun)
+
+  const handleFreeRun = async () => {
+    try {
+      const sessionName = `Course libre — ${formatDate(new Date(), 'd MMMM yyyy', { locale: frLocale })}`
+      const log = await startRunningLog.mutateAsync(null)
+      startRun({ runLogId: log.id, runningSessionId: null, sessionName, sessionType: 'free', blocks: [] })
+      navigate('/running/active')
+    } catch {
+      // silently ignore
+    }
+  }
 
   const PR_LABEL_MAP: Record<string, string> = { '5k': '5 km', '10k': '10 km', 'semi': 'Semi', 'marathon': 'Marathon' }
   const bestPR = prs.reduce<{ label: string; time: string } | null>((acc, pr) => {
@@ -49,7 +64,7 @@ function RunningDashboard({ displayName }: { displayName: string }) {
           <p className="text-[var(--color-text-muted)] text-sm capitalize">
             {format(today, "EEEE d MMMM", { locale: fr })}
           </p>
-          <h1 className="text-2xl font-black mt-0.5">Bonjour {displayName} 🏃</h1>
+          <h1 className="text-2xl font-black mt-0.5">Bonjour {displayName}</h1>
         </div>
         <button
           onClick={() => navigate('/profile')}
@@ -63,7 +78,7 @@ function RunningDashboard({ displayName }: { displayName: string }) {
       {isActive && (
         <button
           onClick={() => navigate('/running/active')}
-          className="w-full bg-[var(--color-success)] text-white rounded-2xl p-4 flex items-center gap-3 active-scale"
+          className="w-full bg-[var(--color-accent)] text-white rounded-2xl p-4 flex items-center gap-3 active-scale"
         >
           <div className="w-2.5 h-2.5 rounded-full bg-white animate-pulse" />
           <span className="font-bold flex-1 text-left">Course en cours</span>
@@ -76,7 +91,7 @@ function RunningDashboard({ displayName }: { displayName: string }) {
         <h2 className="font-bold text-xs text-[var(--color-text-muted)] uppercase tracking-wide">Cette semaine</h2>
         <div className="grid grid-cols-3 gap-2">
           <div className="bg-[var(--color-surface)] rounded-2xl p-4 text-center">
-            <p className="text-2xl font-black text-[var(--color-success)]">{stats?.runsThisWeek ?? 0}</p>
+            <p className="text-2xl font-black text-[var(--color-accent)]">{stats?.runsThisWeek ?? 0}</p>
             <p className="text-xs text-[var(--color-text-muted)] mt-1">Sorties</p>
           </div>
           <div className="bg-[var(--color-surface)] rounded-2xl p-4 text-center">
@@ -95,11 +110,12 @@ function RunningDashboard({ displayName }: { displayName: string }) {
       {/* Actions rapides */}
       <div className="grid grid-cols-2 gap-3">
         <button
-          onClick={() => navigate('/running')}
-          className="bg-[var(--color-success)] text-white rounded-2xl p-4 flex flex-col gap-2 active-scale"
+          onClick={handleFreeRun}
+          disabled={startRunningLog.isPending}
+          className="bg-[var(--color-accent)] text-white rounded-2xl p-4 flex flex-col gap-2 active-scale disabled:opacity-60"
         >
           <Footprints size={24} />
-          <span className="font-bold text-sm">Lancer une course</span>
+          <span className="font-bold text-sm">{startRunningLog.isPending ? 'Démarrage...' : 'Course libre'}</span>
         </button>
         <button
           onClick={() => navigate('/running/history')}
@@ -140,14 +156,15 @@ function RunningDashboard({ displayName }: { displayName: string }) {
       {/* Suggestion si pas de courses */}
       {(stats?.allLogs.length ?? 0) === 0 && (
         <div className="bg-[var(--color-surface)] rounded-2xl p-6 text-center space-y-3">
-          <MapPin size={40} className="mx-auto text-[var(--color-success)] opacity-60" />
+          <MapPin size={40} className="mx-auto text-[var(--color-accent)] opacity-60" />
           <p className="font-semibold">Pas encore de course enregistrée</p>
           <p className="text-sm text-[var(--color-text-muted)]">Lance ta première sortie pour voir tes stats ici</p>
           <button
-            onClick={() => navigate('/running')}
-            className="bg-[var(--color-success)] text-white font-bold px-6 py-3 rounded-xl active-scale"
+            onClick={handleFreeRun}
+            disabled={startRunningLog.isPending}
+            className="bg-[var(--color-accent)] text-white font-bold px-6 py-3 rounded-xl active-scale disabled:opacity-60"
           >
-            C'est parti ! 🏃
+            {startRunningLog.isPending ? 'Démarrage...' : "C'est parti !"}
           </button>
         </div>
       )}
@@ -234,7 +251,7 @@ export default function DashboardPage() {
             <p className="text-xs text-[var(--color-text-muted)] mt-1 leading-tight">Cette semaine</p>
           </div>
           <div className="bg-[var(--color-surface)] rounded-2xl p-4">
-            <p className="text-2xl font-black text-[var(--color-success)]">{completedLogs.length}</p>
+            <p className="text-2xl font-black text-[var(--color-accent)]">{completedLogs.length}</p>
             <p className="text-xs text-[var(--color-text-muted)] mt-1 leading-tight">Total réalisées</p>
           </div>
           <div className="bg-[var(--color-surface)] rounded-2xl p-4">
@@ -252,7 +269,7 @@ export default function DashboardPage() {
             <p className="text-xs text-[var(--color-text-muted)] mt-1 leading-tight">Temps semaine</p>
           </div>
           <div className="bg-[var(--color-surface)] rounded-2xl p-4">
-            <p className="text-lg font-black text-[var(--color-success)] leading-tight">
+            <p className="text-lg font-black text-[var(--color-accent)] leading-tight">
               {totalTimeMin > 0 ? formatMinutes(totalTimeMin) : '—'}
             </p>
             <p className="text-xs text-[var(--color-text-muted)] mt-1 leading-tight">Temps total</p>
@@ -324,7 +341,7 @@ export default function DashboardPage() {
                 onClick={() => navigate(`/history/${log.id}`)}
                 className="bg-[var(--color-surface)] rounded-2xl p-4 flex items-center gap-3 active-scale cursor-pointer"
               >
-                <div className="w-2 h-2 rounded-full bg-[var(--color-success)] flex-shrink-0" />
+                <div className="w-2 h-2 rounded-full bg-[var(--color-accent)] flex-shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="font-medium truncate text-sm">
                     {(log.sessions as { name: string } | null)?.name ?? 'Séance libre'}

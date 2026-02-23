@@ -69,11 +69,11 @@ function RunMap({ points }: { points: { lat: number; lng: number }[] }) {
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-full" preserveAspectRatio="xMidYMid meet">
-      <path d={d} fill="none" stroke="var(--color-success)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+      <path d={d} fill="none" stroke="var(--color-accent)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
       {/* Start */}
       <circle cx={toX(points[0].lng)} cy={toY(points[0].lat)} r="5" fill="var(--color-accent)" />
       {/* Current position */}
-      <circle cx={toX(last.lng)} cy={toY(last.lat)} r="6" fill="white" stroke="var(--color-success)" strokeWidth="2" />
+      <circle cx={toX(last.lng)} cy={toY(last.lat)} r="6" fill="white" stroke="var(--color-accent)" strokeWidth="2" />
     </svg>
   )
 }
@@ -94,7 +94,7 @@ function IntervalBlock() {
     : 1 - blockSecondsRemaining / currentBlock.duration_s
 
   const isWork = currentBlock.phase === 'work'
-  const color = isWork ? 'var(--color-accent)' : 'var(--color-success)'
+  const color = isWork ? 'var(--color-accent)' : 'var(--color-accent)'
   const label = currentBlock.label ?? (isWork ? 'Travail' : 'Repos')
 
   const paceTarget = currentBlock.target_pace_min_km
@@ -138,8 +138,8 @@ function IntervalBlock() {
               key={i}
               className="px-2 py-0.5 rounded-full text-xs font-medium"
               style={{
-                background: b.phase === 'work' ? 'var(--color-accent)/15' : 'var(--color-success)/15',
-                color: b.phase === 'work' ? 'var(--color-accent)' : 'var(--color-success)',
+                background: b.phase === 'work' ? 'var(--color-accent)/15' : 'var(--color-accent)/15',
+                color: b.phase === 'work' ? 'var(--color-accent)' : 'var(--color-accent)',
               }}
             >
               {b.label ?? (b.phase === 'work' ? '⚡' : '😮‍💨')} {b.duration_s}s
@@ -260,9 +260,9 @@ export default function ActiveRunningPage() {
     const target = blocks[idx]?.target_pace_min_km
     if (!target || !currentPaceSecPerKm) return 'var(--color-text)'
     const diff = currentPaceSecPerKm - Number(target)
-    if (diff < -10) return 'var(--color-success)'   // trop rapide
+    if (diff < -10) return 'var(--color-accent)'   // trop rapide
     if (diff > 15) return 'var(--color-danger)'      // trop lent
-    return 'var(--color-success)'
+    return 'var(--color-accent)'
   })()
 
   return (
@@ -273,7 +273,7 @@ export default function ActiveRunningPage() {
         style={{ paddingTop: 'var(--safe-area-top)', height: 'calc(var(--safe-area-top) + 56px)' }}
       >
         <div className="flex items-center gap-2">
-          <div className="w-2.5 h-2.5 rounded-full bg-[var(--color-success)] animate-pulse" />
+          <div className="w-2.5 h-2.5 rounded-full bg-[var(--color-accent)] animate-pulse" />
           <span className="font-bold text-sm truncate max-w-[160px]">{sessionName}</span>
         </div>
         <button
@@ -321,7 +321,7 @@ export default function ActiveRunningPage() {
             </div>
           </div>
           <div className="bg-[var(--color-surface)] rounded-2xl p-3 flex items-center gap-3">
-            <ChevronUp size={18} className="text-[var(--color-success)] flex-shrink-0" />
+            <ChevronUp size={18} className="text-[var(--color-accent)] flex-shrink-0" />
             <div>
               <p className="font-bold text-sm">+{Math.round(elevationGainM)} m</p>
               <p className="text-xs text-[var(--color-text-muted)]">Dénivelé +</p>
@@ -339,7 +339,7 @@ export default function ActiveRunningPage() {
             className="w-full flex items-center justify-between px-4 py-3 active-scale"
           >
             <div className="flex items-center gap-2">
-              <MapPin size={16} className="text-[var(--color-success)]" />
+              <MapPin size={16} className="text-[var(--color-accent)]" />
               <span className="text-sm font-semibold">Tracé GPS</span>
               <span className="text-xs text-[var(--color-text-muted)]">
                 ({gpsPoints.length} points)

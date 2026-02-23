@@ -151,7 +151,7 @@ export function useRemoveFriend() {
   })
 }
 
-// Invite a friend to an active session
+// Invite a friend to an active session (musculation)
 export function useInviteToSession() {
   const qc = useQueryClient()
   return useMutation({
@@ -168,6 +168,77 @@ export function useInviteToSession() {
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['session-invites'] }),
   })
+}
+
+// Invite a friend to an active run
+export function useInviteToRun() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ runLogId, inviteeId }: { runLogId: string; inviteeId: string }) => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('Non authentifié')
+
+      const { error } = await supabase.from('run_invites').insert({
+        run_log_id: runLogId,
+        inviter_id: user.id,
+        invitee_id: inviteeId,
+      })
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['run-invites'] }),
+  })
+}
+
+// Get pending run invitations for the current user
+export function useRunInvites() {
+  return useQuery({
+    queryKey: ['run-invites'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return []
+
+      const { data, error } = await supabase
+        .from('run_invites')
+        .select(`
+          *,
+          inviter:profiles!run_invites_inviter_id_fkey(*)
+        `)
+        .eq('invitee_id', user.id)
+        .eq('status', 'pending')
+
+      if (error) {
+        // Table peut ne pas encore exister si migration pas encore exécutée
+        console.warn('[useRunInvites]', error.message)
+        return []
+      }
+      return (data ?? []) as RunInvite[]
+    },
+  })
+}
+
+// Respond to a run invite
+export function useRespondRunInvite() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, accept }: { id: string; accept: boolean }) => {
+      const { error } = await supabase
+        .from('run_invites')
+        .update({ status: accept ? 'accepted' : 'declined' })
+        .eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['run-invites'] }),
+  })
+}
+
+export type RunInvite = {
+  id: string
+  run_log_id: string
+  inviter_id: string
+  invitee_id: string
+  status: 'pending' | 'accepted' | 'declined'
+  created_at: string
+  inviter?: Profile
 }
 
 // Get pending session invitations for the current user
