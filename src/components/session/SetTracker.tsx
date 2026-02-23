@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Minus, Plus, Check } from 'lucide-react'
 import FeelingRater from './FeelingRater'
 import type { ActiveSet } from '@/types/app'
@@ -12,80 +12,95 @@ interface Props {
   onComplete: (set: ActiveSet) => void
 }
 
-// Stepper compact : boutons −/+ autour d'un champ clavier numérique
 function Stepper({
   value,
   onChange,
   step = 1,
   min = 0,
   label,
-  decimals = 0,
+  allowDecimal = false,
 }: {
   value: number
   onChange: (v: number) => void
   step?: number
   min?: number
   label: string
-  decimals?: number
+  allowDecimal?: boolean
 }) {
-  // Texte affiché dans l'input (permet la saisie libre)
-  const [raw, setRaw] = useState(value > 0 ? String(value) : '')
+  // raw = ce que l'utilisateur tape (string libre)
+  const [raw, setRaw] = useState(() => (value > 0 ? String(value) : ''))
+  const [focused, setFocused] = useState(false)
 
-  const commit = (s: string) => {
+  // Quand value change via bouton +/-, mettre à jour raw (sauf si l'user tape)
+  useEffect(() => {
+    if (!focused) {
+      setRaw(value > 0 ? String(value) : '')
+    }
+  }, [value, focused])
+
+  const parse = (s: string): number => {
     const n = parseFloat(s.replace(',', '.'))
-    if (!isNaN(n)) onChange(Math.max(min, n))
-    else if (s === '' || s === '-') onChange(min)
+    return isNaN(n) ? min : Math.max(min, n)
   }
 
   const inc = () => {
-    const next = parseFloat((value + step).toFixed(decimals || 0))
+    const next = parseFloat((value + step).toFixed(allowDecimal ? 2 : 0))
     onChange(next)
-    setRaw(String(next))
-  }
-  const dec = () => {
-    const next = parseFloat(Math.max(min, value - step).toFixed(decimals || 0))
-    onChange(next)
-    setRaw(String(next))
   }
 
-  // Synchronise raw avec value quand value change via boutons
-  const displayed = raw !== '' && parseFloat(raw.replace(',', '.')) === value
-    ? raw
-    : value > 0 ? String(value) : ''
+  const dec = () => {
+    const next = parseFloat(Math.max(min, value - step).toFixed(allowDecimal ? 2 : 0))
+    onChange(next)
+  }
 
   return (
-    <div className="flex flex-col items-center gap-1.5 flex-1 min-w-0">
-      <span className="text-xs text-[var(--color-text-muted)] uppercase tracking-wide font-medium whitespace-nowrap">
+    <div className="flex flex-col items-center gap-2 flex-1 min-w-0">
+      <span className="text-xs text-[var(--color-text-muted)] uppercase tracking-wide font-medium">
         {label}
       </span>
-      <div className="flex items-center gap-1.5 w-full justify-center">
+      <div className="flex items-center gap-2 w-full justify-center">
+        {/* Bouton moins */}
         <button
           type="button"
-          onPointerDown={(e) => e.preventDefault()}
+          onPointerDown={(e) => e.preventDefault()} // évite de flouter l'input
           onClick={dec}
-          className="w-11 h-11 rounded-full bg-[var(--color-surface-2)] flex items-center justify-center active-scale flex-shrink-0 touch-manipulation"
+          className="w-12 h-12 rounded-full bg-[var(--color-surface-2)] flex items-center justify-center active-scale flex-shrink-0 touch-manipulation text-lg font-bold"
         >
-          <Minus size={18} />
+          <Minus size={20} />
         </button>
+
+        {/* Champ numérique */}
         <input
-          inputMode="decimal"
+          inputMode={allowDecimal ? 'decimal' : 'numeric'}
           type="text"
-          pattern="[0-9]*[.,]?[0-9]*"
-          value={displayed}
+          value={focused ? raw : (value > 0 ? String(value) : '')}
           placeholder="0"
           onChange={(e) => {
-            setRaw(e.target.value)
+            // N'autoriser que chiffres, virgule, point
+            const filtered = allowDecimal
+              ? e.target.value.replace(/[^0-9.,]/g, '')
+              : e.target.value.replace(/[^0-9]/g, '')
+            setRaw(filtered)
           }}
-          onBlur={(e) => commit(e.target.value)}
-          className="w-16 text-center text-2xl font-black bg-[var(--color-surface-2)] text-[var(--color-text)] rounded-xl py-2 outline-none focus:ring-2 focus:ring-[var(--color-accent)] min-w-0"
+          onFocus={() => {
+            setFocused(true)
+            setRaw(value > 0 ? String(value) : '')
+          }}
+          onBlur={(e) => {
+            setFocused(false)
+            onChange(parse(e.target.value))
+          }}
+          className="w-16 text-center text-3xl font-black bg-[var(--color-surface-2)] text-[var(--color-text)] rounded-xl py-2 outline-none focus:ring-2 focus:ring-[var(--color-accent)] touch-manipulation"
         />
+
+        {/* Bouton plus */}
         <button
           type="button"
           onPointerDown={(e) => e.preventDefault()}
           onClick={inc}
-          className="w-11 h-11 rounded-full bg-[var(--color-surface-2)] flex items-center justify-center active-scale flex-shrink-0 touch-manipulation"
+          className="w-12 h-12 rounded-full bg-[var(--color-surface-2)] flex items-center justify-center active-scale flex-shrink-0 touch-manipulation text-lg font-bold"
         >
-          <Plus size={18} />
+          <Plus size={20} />
         </button>
       </div>
     </div>
@@ -118,7 +133,7 @@ export default function SetTracker({
   }
 
   return (
-    <div className="bg-[var(--color-surface)] rounded-2xl p-4 space-y-4">
+    <div className="bg-[var(--color-surface)] rounded-2xl p-4 space-y-5">
       {previousSet && !isDuration && (
         <p className="text-center text-xs text-[var(--color-text-muted)]">
           Dernière série : <span className="font-semibold">{previousSet.weight} kg × {previousSet.reps}</span>
@@ -131,26 +146,26 @@ export default function SetTracker({
         </p>
       )}
 
-      {/* Steppers côte à côte */}
-      <div className="flex items-start justify-center gap-2">
+      {/* Poids + Reps */}
+      <div className="flex items-start gap-3">
         <Stepper
           value={weight}
           onChange={setWeight}
           step={2.5}
           min={0}
           label="Poids (kg)"
-          decimals={1}
+          allowDecimal
         />
         {!isDuration && (
           <>
-            <div className="w-px bg-[var(--color-border)] self-stretch mt-6" />
+            <div className="w-px bg-[var(--color-border)] self-stretch mt-7" />
             <Stepper
               value={reps}
               onChange={setReps}
               step={1}
               min={0}
               label="Reps"
-              decimals={0}
+              allowDecimal={false}
             />
           </>
         )}
