@@ -78,8 +78,8 @@ function Stepper({
           onChange={(e) => {
             // N'autoriser que chiffres, virgule, point
             const filtered = allowDecimal
-              ? e.target.value.replace(/[^0-9.,]/g, '')
-              : e.target.value.replace(/[^0-9]/g, '')
+              ? e.target.value.replace(/[^0-9.,]/g, '') // ex: 82.25 ou 82,25
+              : e.target.value.replace(/[^0-9]/g, '')    // entiers seulement
             setRaw(filtered)
           }}
           onFocus={() => {
