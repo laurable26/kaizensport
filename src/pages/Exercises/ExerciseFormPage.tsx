@@ -33,7 +33,8 @@ export default function ExerciseFormPage() {
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [photoFile, setPhotoFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)       // galerie
+  const cameraRef = useRef<HTMLInputElement>(null)      // appareil photo direct
 
   const { register, handleSubmit, control, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -56,7 +57,8 @@ export default function ExerciseFormPage() {
 
   const uploadPhoto = async (exerciseId: string): Promise<string | null> => {
     if (!photoFile) return null
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { session } } = await supabase.auth.getSession()
+    const user = session?.user
     if (!user) return null
 
     setUploading(true)
@@ -141,9 +143,11 @@ export default function ExerciseFormPage() {
 
       <form onSubmit={handleSubmit(onSubmit)} className="px-4 py-4 space-y-5 pb-32">
 
-        {/* Photo — disponible dès la création */}
+        {/* Photo — format portrait 3:4 */}
         <div className="space-y-2">
           <label className="text-sm text-[var(--color-text-muted)]">Photo de l'exercice</label>
+
+          {/* Input galerie (sans capture) */}
           <input
             ref={inputRef}
             type="file"
@@ -151,9 +155,19 @@ export default function ExerciseFormPage() {
             className="hidden"
             onChange={(e) => { const f = e.target.files?.[0]; if (f) handlePhotoFile(f) }}
           />
+          {/* Input appareil photo direct */}
+          <input
+            ref={cameraRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) handlePhotoFile(f) }}
+          />
 
           {photoPreview || existing?.photo_url ? (
-            <div className="relative rounded-2xl overflow-hidden aspect-video bg-[var(--color-surface)]">
+            /* Photo choisie — format portrait 3:4 */
+            <div className="relative rounded-2xl overflow-hidden bg-[var(--color-surface)] mx-auto" style={{ aspectRatio: '3/4', maxWidth: '280px' }}>
               <img
                 src={photoPreview ?? (existing?.photo_url ?? '')}
                 alt="Aperçu"
@@ -164,26 +178,64 @@ export default function ExerciseFormPage() {
                   <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
                 </div>
               )}
-              <button
-                type="button"
-                onClick={() => { setPhotoPreview(null); setPhotoFile(null) }}
-                className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/60 flex items-center justify-center"
-              >
-                <X size={14} className="text-white" />
-              </button>
+              {/* Bouton changer en bas */}
+              <div className="absolute bottom-0 inset-x-0 flex gap-2 p-3 bg-gradient-to-t from-black/70 to-transparent">
+                <button
+                  type="button"
+                  onClick={() => cameraRef.current?.click()}
+                  className="flex-1 flex items-center justify-center gap-1.5 bg-white/20 backdrop-blur text-white text-xs font-semibold py-2 rounded-lg active-scale"
+                >
+                  <Camera size={14} />
+                  Reprendre
+                </button>
+                <button
+                  type="button"
+                  onClick={() => inputRef.current?.click()}
+                  className="flex-1 flex items-center justify-center gap-1.5 bg-white/20 backdrop-blur text-white text-xs font-semibold py-2 rounded-lg active-scale"
+                >
+                  <Upload size={14} />
+                  Galerie
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setPhotoPreview(null); setPhotoFile(null) }}
+                  className="w-9 h-9 flex items-center justify-center bg-white/20 backdrop-blur rounded-lg active-scale"
+                >
+                  <X size={14} className="text-white" />
+                </button>
+              </div>
             </div>
           ) : (
-            <button
-              type="button"
-              onClick={() => inputRef.current?.click()}
-              className="w-full aspect-video rounded-2xl border-2 border-dashed border-[var(--color-border)] flex flex-col items-center justify-center gap-3 text-[var(--color-text-muted)] active-scale hover:border-[var(--color-accent)] transition-colors"
-            >
-              <div className="flex gap-4">
-                <Camera size={28} />
-                <Upload size={28} />
+            /* Pas de photo — deux boutons côte à côte */
+            <div className="mx-auto" style={{ maxWidth: '280px' }}>
+              <div
+                className="rounded-2xl border-2 border-dashed border-[var(--color-border)] bg-[var(--color-surface)] flex flex-col items-center justify-center gap-4 p-8"
+                style={{ aspectRatio: '3/4' }}
+              >
+                <div className="w-16 h-16 rounded-full bg-[var(--color-surface-2)] flex items-center justify-center">
+                  <Camera size={28} className="text-[var(--color-text-muted)]" />
+                </div>
+                <p className="text-sm text-[var(--color-text-muted)] text-center">Ajoute une photo<br/>pour mémoriser le mouvement</p>
+                <div className="flex gap-3 w-full">
+                  <button
+                    type="button"
+                    onClick={() => cameraRef.current?.click()}
+                    className="flex-1 flex flex-col items-center gap-1.5 bg-[var(--color-accent)] text-white text-xs font-semibold py-3 rounded-xl active-scale"
+                  >
+                    <Camera size={18} />
+                    Photo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => inputRef.current?.click()}
+                    className="flex-1 flex flex-col items-center gap-1.5 bg-[var(--color-surface-2)] text-[var(--color-text-muted)] text-xs font-semibold py-3 rounded-xl active-scale"
+                  >
+                    <Upload size={18} />
+                    Galerie
+                  </button>
+                </div>
               </div>
-              <span className="text-sm">Prendre ou choisir une photo</span>
-            </button>
+            </div>
           )}
         </div>
 

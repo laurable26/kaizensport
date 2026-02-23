@@ -45,8 +45,8 @@ export default function ExerciseDetailPage() {
       />
 
       <div className="px-4 py-4 space-y-5">
-        {/* Photo */}
-        <div className="aspect-video rounded-2xl overflow-hidden">
+        {/* Photo — format portrait 3:4 */}
+        <div className="mx-auto rounded-2xl overflow-hidden" style={{ aspectRatio: '3/4', maxWidth: '280px' }}>
           <ExercisePhoto
             photoUrl={exercise.photo_url}
             name={exercise.name}

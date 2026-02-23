@@ -3,7 +3,8 @@ import { supabase } from '@/lib/supabase'
 
 export function usePhotoUpload() {
   const uploadPhoto = async (exerciseId: string, file: File): Promise<string> => {
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { session } } = await supabase.auth.getSession()
+    const user = session?.user
     if (!user) throw new Error('Not authenticated')
 
     const compressed = await imageCompression(file, {
