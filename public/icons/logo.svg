@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 160" fill="none">
+  <!-- Silhouette fitness homme/femme fusionnée -->
+  <!-- Corps central -->
+  <path d="M100 20 C93 20 88 25 88 32 L88 55 L75 45 C70 41 64 43 62 48 C60 53 63 59 68 61 L85 68 L85 100 L75 130 L90 130 L100 105 L110 130 L125 130 L115 100 L115 68 L132 61 C137 59 140 53 138 48 C136 43 130 41 125 45 L112 55 L112 32 C112 25 107 20 100 20Z" fill="currentColor"/>
+  <!-- Bras gauche levé -->
+  <path d="M75 45 C70 41 64 43 62 48 L55 38 C50 30 42 32 40 38 C38 44 43 50 50 48 L62 48Z" fill="currentColor"/>
+  <!-- Avant-bras gauche avec biceps -->
+  <path d="M40 38 C38 32 44 26 50 30 L55 38 C50 48 43 50 40 38Z" fill="currentColor"/>
+  <!-- Bras droit levé -->
+  <path d="M125 45 C130 41 136 43 138 48 L145 38 C150 30 158 32 160 38 C162 44 157 50 150 48 L138 48Z" fill="currentColor"/>
+  <!-- Avant-bras droit avec biceps -->
+  <path d="M160 38 C162 32 156 26 150 30 L145 38 C150 48 157 50 160 38Z" fill="currentColor"/>
+  <!-- Ligne centrale (séparation homme/femme) -->
+  <line x1="100" y1="18" x2="100" y2="132" stroke="white" stroke-width="1.5" opacity="0.6"/>
+</svg>
