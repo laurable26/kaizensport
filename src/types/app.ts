@@ -90,6 +90,13 @@ export type WeekDay = {
   events: ScheduledEventWithDetails[]
 }
 
+export type ScheduledEventParticipant = {
+  id: string
+  full_name: string | null
+  email: string
+  avatar_url: string | null
+}
+
 export type ScheduledEventWithDetails = {
   id: string
   plannedDate: string
@@ -98,4 +105,6 @@ export type ScheduledEventWithDetails = {
   name: string
   sessionId?: string
   workoutId?: string
+  /** Participants (amis avec qui la séance est partagée) */
+  participants?: ScheduledEventParticipant[]
 }

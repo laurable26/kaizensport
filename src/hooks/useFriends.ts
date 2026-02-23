@@ -89,13 +89,22 @@ export function usePendingRequests() {
 export function useSearchProfile() {
   return useMutation({
     mutationFn: async (email: string) => {
+      const { data: { session } } = await supabase.auth.getSession()
+      const currentUserId = session?.user?.id
+
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
-        .ilike('email', email)
-        .single()
+        .ilike('email', email.trim())
+        .limit(1)
+
       if (error) return null
-      return data as Profile
+      if (!data || data.length === 0) return null
+
+      const profile = data[0] as Profile
+      // Exclure l'utilisateur courant
+      if (profile.id === currentUserId) return null
+      return profile
     },
   })
 }

@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { startOfWeek, endOfWeek, format } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import type { ScheduledEventWithDetails, WeekDay } from '@/types/app'
+import type { ScheduledEventWithDetails, ScheduledEventParticipant, WeekDay } from '@/types/app'
 
 export function useWeekSchedule(weekStart: Date) {
   const start = format(startOfWeek(weekStart, { weekStartsOn: 1 }), 'yyyy-MM-dd')
@@ -11,19 +11,59 @@ export function useWeekSchedule(weekStart: Date) {
   return useQuery({
     queryKey: ['schedule', start, end],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('scheduled_events')
-        .select(`
-          *,
-          sessions(name),
-          workouts(name)
-        `)
-        .gte('planned_date', start)
-        .lte('planned_date', end)
-        .order('planned_date')
-        .order('planned_time')
+      const { data: { session: authSession } } = await supabase.auth.getSession()
+      const userId = authSession?.user?.id
 
-      if (error) throw error
+      const [eventsRes, sharedRes] = await Promise.all([
+        supabase
+          .from('scheduled_events')
+          .select('*, sessions(name), workouts(name)')
+          .gte('planned_date', start)
+          .lte('planned_date', end)
+          .order('planned_date')
+          .order('planned_time'),
+
+        // Partages acceptés pour récupérer les participants par session_id
+        userId
+          ? supabase
+              .from('shared_sessions')
+              .select(`
+                source_session_id,
+                target_session_id,
+                inviter_id,
+                invitee_id,
+                inviter:profiles!shared_sessions_inviter_id_fkey(id, full_name, email, avatar_url),
+                invitee:profiles!shared_sessions_invitee_id_fkey(id, full_name, email, avatar_url)
+              `)
+              .eq('status', 'accepted')
+              .or(`inviter_id.eq.${userId},invitee_id.eq.${userId}`)
+          : Promise.resolve({ data: [], error: null }),
+      ])
+
+      if (eventsRes.error) throw eventsRes.error
+
+      // Construire un map sessionId → participants (autres que soi)
+      const participantsMap: Record<string, ScheduledEventParticipant[]> = {}
+      for (const row of ((sharedRes.data ?? []) as any[])) {
+        const inviter = row.inviter as ScheduledEventParticipant | null
+        const invitee = row.invitee as ScheduledEventParticipant | null
+
+        // Associer aux deux session IDs (source et target)
+        const relatedIds = [row.source_session_id, row.target_session_id].filter(Boolean) as string[]
+        for (const sid of relatedIds) {
+          if (!participantsMap[sid]) participantsMap[sid] = []
+          if (inviter && inviter.id !== userId) {
+            if (!participantsMap[sid].find((p) => p.id === inviter.id)) {
+              participantsMap[sid].push(inviter)
+            }
+          }
+          if (invitee && invitee.id !== userId) {
+            if (!participantsMap[sid].find((p) => p.id === invitee.id)) {
+              participantsMap[sid].push(invitee)
+            }
+          }
+        }
+      }
 
       // Build WeekDay array
       const days: WeekDay[] = []
@@ -33,7 +73,7 @@ export function useWeekSchedule(weekStart: Date) {
         const dateStr = format(date, 'yyyy-MM-dd')
         const today = format(new Date(), 'yyyy-MM-dd')
 
-        const events = (data ?? [])
+        const events = (eventsRes.data ?? [])
           .filter((e) => e.planned_date === dateStr)
           .map((e): ScheduledEventWithDetails => ({
             id: e.id,
@@ -43,6 +83,7 @@ export function useWeekSchedule(weekStart: Date) {
             name: (e.sessions as { name: string } | null)?.name ?? (e.workouts as { name: string } | null)?.name ?? '',
             sessionId: e.session_id ?? undefined,
             workoutId: e.workout_id ?? undefined,
+            participants: e.session_id ? (participantsMap[e.session_id] ?? []) : [],
           }))
 
         days.push({

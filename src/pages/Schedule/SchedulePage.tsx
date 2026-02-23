@@ -164,6 +164,31 @@ export default function SchedulePage() {
                           · {event.type === 'session' ? 'Séance' : 'Workout'}
                         </span>
                       </div>
+                      {/* Avatars des participants */}
+                      {event.participants && event.participants.length > 0 && (
+                        <div className="flex items-center gap-1 mt-1.5">
+                          <div className="flex -space-x-1.5">
+                            {event.participants.slice(0, 4).map((p) => (
+                              <div
+                                key={p.id}
+                                className="w-5 h-5 rounded-full border-2 border-[var(--color-surface)] overflow-hidden bg-[var(--color-accent)]/20 flex items-center justify-center flex-shrink-0"
+                                title={p.full_name ?? p.email}
+                              >
+                                {p.avatar_url ? (
+                                  <img src={p.avatar_url} alt={p.full_name ?? p.email} className="w-full h-full object-cover" />
+                                ) : (
+                                  <span className="text-[8px] font-bold text-[var(--color-accent)] uppercase">
+                                    {(p.full_name ?? p.email ?? '?')[0]}
+                                  </span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                          <span className="text-[10px] text-[var(--color-text-muted)]">
+                            avec {event.participants.map((p) => p.full_name ?? p.email.split('@')[0]).join(', ')}
+                          </span>
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center gap-2">
                       <button
