@@ -77,7 +77,7 @@ export default function RunningDetailPage() {
   const blocks = session.running_interval_blocks ?? []
   const expanded = session.type === 'interval' ? expandBlocks(blocks) : []
 
-  const totalIntervalTime = expanded.reduce((acc, b) => acc + b.durationS, 0)
+  const totalIntervalTime = expanded.reduce((acc, b) => acc + b.duration_s, 0)
   const totalTime =
     (session.warmup_duration_s ?? 0) +
     totalIntervalTime +

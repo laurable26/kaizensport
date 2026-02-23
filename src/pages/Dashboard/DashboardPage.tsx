@@ -3,14 +3,156 @@ import { fr } from 'date-fns/locale'
 import { useAuth } from '@/hooks/useAuth'
 import { useSessionLogs } from '@/hooks/useSessionLog'
 import { useWeekSchedule, useSkippedSessions } from '@/hooks/useSchedule'
+import { useRunningStats, useRunningPRs } from '@/hooks/useRunning'
+import { useRunningStore } from '@/store/runningStore'
+import { useAppModeStore } from '@/store/appModeStore'
 import { useNavigate } from 'react-router-dom'
-import { Play, Calendar, Dumbbell, User } from 'lucide-react'
+import { Play, Calendar, Dumbbell, User, Footprints, Trophy, TrendingUp, MapPin } from 'lucide-react'
 
 function formatMinutes(minutes: number): string {
   if (minutes < 60) return `${minutes} min`
   const h = Math.floor(minutes / 60)
   const m = minutes % 60
   return m > 0 ? `${h}h${m.toString().padStart(2, '0')}` : `${h}h`
+}
+
+function formatPace(secPerKm: number | null | undefined): string {
+  if (!secPerKm) return '--:--'
+  const m = Math.floor(secPerKm / 60)
+  const s = Math.round(secPerKm % 60)
+  return `${m}:${String(s).padStart(2, '0')}/km`
+}
+
+function RunningDashboard({ displayName }: { displayName: string }) {
+  const navigate = useNavigate()
+  const today = new Date()
+  const { data: stats } = useRunningStats()
+  const { data: prs = [] } = useRunningPRs()
+  const { isActive } = useRunningStore()
+
+  const PR_LABEL_MAP: Record<string, string> = { '5k': '5 km', '10k': '10 km', 'semi': 'Semi', 'marathon': 'Marathon' }
+  const bestPR = prs.reduce<{ label: string; time: string } | null>((acc, pr) => {
+    if (!acc) {
+      const label = PR_LABEL_MAP[pr.distance] ?? pr.distance
+      const m = Math.floor(pr.duration_s / 60)
+      const s = pr.duration_s % 60
+      return { label, time: `${m}'${String(s).padStart(2, '0')}` }
+    }
+    return acc
+  }, null)
+
+  return (
+    <div className="px-4 py-6 space-y-6" style={{ paddingTop: 'calc(var(--safe-area-top) + 1.5rem)' }}>
+      {/* Greeting */}
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-[var(--color-text-muted)] text-sm capitalize">
+            {format(today, "EEEE d MMMM", { locale: fr })}
+          </p>
+          <h1 className="text-2xl font-black mt-0.5">Bonjour {displayName} 🏃</h1>
+        </div>
+        <button
+          onClick={() => navigate('/profile')}
+          className="w-10 h-10 rounded-full bg-[var(--color-surface)] flex items-center justify-center active-scale flex-shrink-0 mt-1"
+        >
+          <User size={18} className="text-[var(--color-text-muted)]" />
+        </button>
+      </div>
+
+      {/* Banner course active */}
+      {isActive && (
+        <button
+          onClick={() => navigate('/running/active')}
+          className="w-full bg-[var(--color-success)] text-white rounded-2xl p-4 flex items-center gap-3 active-scale"
+        >
+          <div className="w-2.5 h-2.5 rounded-full bg-white animate-pulse" />
+          <span className="font-bold flex-1 text-left">Course en cours</span>
+          <span className="text-sm opacity-80">Reprendre →</span>
+        </button>
+      )}
+
+      {/* Stats semaine */}
+      <div className="space-y-2">
+        <h2 className="font-bold text-xs text-[var(--color-text-muted)] uppercase tracking-wide">Cette semaine</h2>
+        <div className="grid grid-cols-3 gap-2">
+          <div className="bg-[var(--color-surface)] rounded-2xl p-4 text-center">
+            <p className="text-2xl font-black text-[var(--color-success)]">{stats?.runsThisWeek ?? 0}</p>
+            <p className="text-xs text-[var(--color-text-muted)] mt-1">Sorties</p>
+          </div>
+          <div className="bg-[var(--color-surface)] rounded-2xl p-4 text-center">
+            <p className="text-xl font-black text-[var(--color-accent)]">
+              {(stats?.totalKmThisWeek ?? 0).toFixed(1)} km
+            </p>
+            <p className="text-xs text-[var(--color-text-muted)] mt-1">Distance</p>
+          </div>
+          <div className="bg-[var(--color-surface)] rounded-2xl p-4 text-center">
+            <p className="text-lg font-black">{formatPace(stats?.bestPaceThisWeek)}</p>
+            <p className="text-xs text-[var(--color-text-muted)] mt-1">Meilleure allure</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Actions rapides */}
+      <div className="grid grid-cols-2 gap-3">
+        <button
+          onClick={() => navigate('/running')}
+          className="bg-[var(--color-success)] text-white rounded-2xl p-4 flex flex-col gap-2 active-scale"
+        >
+          <Footprints size={24} />
+          <span className="font-bold text-sm">Lancer une course</span>
+        </button>
+        <button
+          onClick={() => navigate('/running/history')}
+          className="bg-[var(--color-surface)] rounded-2xl p-4 flex flex-col gap-2 active-scale"
+        >
+          <TrendingUp size={24} className="text-[var(--color-accent)]" />
+          <span className="font-bold text-sm">Mon historique</span>
+        </button>
+      </div>
+
+      {/* Records personnels */}
+      {prs.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="font-bold text-sm text-[var(--color-text-muted)] uppercase tracking-wide">Records personnels</h2>
+          <div className="space-y-2">
+            {prs.slice(0, 3).map((pr) => {
+              const label = PR_LABEL_MAP[pr.distance] ?? pr.distance
+              const m = Math.floor(pr.duration_s / 60)
+              const s = pr.duration_s % 60
+              return (
+                <div key={pr.distance} className="bg-[var(--color-surface)] rounded-2xl p-4 flex items-center gap-3">
+                  <Trophy size={18} className="text-yellow-500 flex-shrink-0" />
+                  <span className="flex-1 font-medium text-sm">{label}</span>
+                  <span className="font-bold text-yellow-500">{m}'{String(s).padStart(2, '0')}</span>
+                </div>
+              )
+            })}
+          </div>
+          <button
+            onClick={() => navigate('/running/history')}
+            className="w-full text-center text-[var(--color-text-muted)] text-sm py-2"
+          >
+            Voir tous les records
+          </button>
+        </section>
+      )}
+
+      {/* Suggestion si pas de courses */}
+      {(stats?.allLogs.length ?? 0) === 0 && (
+        <div className="bg-[var(--color-surface)] rounded-2xl p-6 text-center space-y-3">
+          <MapPin size={40} className="mx-auto text-[var(--color-success)] opacity-60" />
+          <p className="font-semibold">Pas encore de course enregistrée</p>
+          <p className="text-sm text-[var(--color-text-muted)]">Lance ta première sortie pour voir tes stats ici</p>
+          <button
+            onClick={() => navigate('/running')}
+            className="bg-[var(--color-success)] text-white font-bold px-6 py-3 rounded-xl active-scale"
+          >
+            C'est parti ! 🏃
+          </button>
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function DashboardPage() {
@@ -20,6 +162,7 @@ export default function DashboardPage() {
   const { data: weekDays = [] } = useWeekSchedule(today)
   const { data: skippedCount = 0 } = useSkippedSessions()
   const navigate = useNavigate()
+  const mode = useAppModeStore((s) => s.mode)
 
   const todayStr = format(today, 'yyyy-MM-dd')
   const todayEvents = weekDays.find((d) => format(d.date, 'yyyy-MM-dd') === todayStr)?.events ?? []
@@ -56,6 +199,11 @@ export default function DashboardPage() {
     ?? user?.user_metadata?.name
     ?? user?.email?.split('@')[0]
     ?? ''
+
+  // Mode course → dashboard dédié
+  if (mode === 'running') {
+    return <RunningDashboard displayName={displayName} />
+  }
 
   return (
     <div className="px-4 py-6 space-y-6" style={{ paddingTop: 'calc(var(--safe-area-top) + 1.5rem)' }}>

@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm create:*)",
+      "Bash(npm init:*)",
+      "Bash(npm install:*)",
+      "Bash(npm:*)",
+      "Bash(node:*)",
+      "Bash(dir C:UserscontaTop)",
+      "Bash(npx tsc:*)",
+      "Bash(npx web-push generate-vapid-keys)",
+      "Bash(tasklist:*)",
+      "Bash(dir:*)",
+      "Bash(echo:*)",
+      "Bash(Get-ChildItem \"C:\\\\Users\\\\conta\\\\Top\")",
+      "Bash(Select-Object Name)"
+    ]
+  }
+}

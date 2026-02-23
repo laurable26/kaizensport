@@ -1,5 +1,6 @@
 import { create } from 'zustand'
-import type { RunningSession, ExpandedIntervalBlock, GpsPoint, LiveRunStats } from '@/types/app'
+import type { ExpandedIntervalBlock, GpsPoint, LiveRunStats } from '@/types/app'
+import type { RunningSession } from '@/types/database'
 
 export type RunPhase = 'idle' | 'warmup' | 'interval' | 'cooldown' | 'free' | 'complete'
 

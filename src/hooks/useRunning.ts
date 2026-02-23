@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { PR_DISTANCES } from '@/types/app'
+import type { RunningSessionWithBlocks, RunningLogWithSession, GpsPoint } from '@/types/app'
 import type {
   RunningSession,
   RunningSessionInsert,
@@ -8,10 +9,7 @@ import type {
   RunningIntervalBlockInsert,
   RunningLog,
   RunningPersonalRecord,
-  RunningSessionWithBlocks,
-  RunningLogWithSession,
-  GpsPoint,
-} from '@/types/app'
+} from '@/types/database'
 
 // ── Sessions (plans de course) ────────────────────────────────────────────────
 
@@ -153,7 +151,7 @@ export function useRunningLogs(limit = 50) {
         .order('started_at', { ascending: false })
         .limit(limit)
       if (error) throw error
-      return data as RunningLogWithSession[]
+      return (data as unknown) as RunningLogWithSession[]
     },
   })
 }

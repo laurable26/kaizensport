@@ -44,6 +44,13 @@ import FriendsPage from '@/pages/Friends/FriendsPage'
 // Privacy
 import PrivacyPage from '@/pages/Privacy/PrivacyPage'
 
+// Running
+import RunningPage from '@/pages/Running/RunningPage'
+import RunningFormPage from '@/pages/Running/RunningFormPage'
+import RunningDetailPage from '@/pages/Running/RunningDetailPage'
+import ActiveRunningPage from '@/pages/Running/ActiveRunningPage'
+import RunningHistoryPage from '@/pages/Running/RunningHistoryPage'
+
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -97,6 +104,14 @@ export default function App() {
 
             {/* Privacy */}
             <Route path="privacy" element={<PrivacyPage />} />
+
+            {/* Running */}
+            <Route path="running" element={<RunningPage />} />
+            <Route path="running/new" element={<RunningFormPage />} />
+            <Route path="running/active" element={<ActiveRunningPage />} />
+            <Route path="running/history" element={<RunningHistoryPage />} />
+            <Route path="running/:id" element={<RunningDetailPage />} />
+            <Route path="running/:id/edit" element={<RunningFormPage />} />
           </Route>
         </Routes>
       </BrowserRouter>
