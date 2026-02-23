@@ -15,7 +15,8 @@ import {
 } from '@/hooks/useFriends'
 import { useAppModeStore } from '@/store/appModeStore'
 import { useRunningStore } from '@/store/runningStore'
-import { UserPlus, UserCheck, UserX, Search, Users, Bell, Footprints } from 'lucide-react'
+import { useAuth } from '@/hooks/useAuth'
+import { UserPlus, UserCheck, UserX, Search, Users, Bell, Footprints, Mail } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useNavigate } from 'react-router-dom'
 
@@ -25,6 +26,8 @@ export default function FriendsPage() {
   const navigate = useNavigate()
   const mode = useAppModeStore((s) => s.mode)
   const { isActive: isRunActive, runLogId } = useRunningStore()
+  const { user } = useAuth()
+  const senderName = user?.user_metadata?.full_name ?? user?.email ?? 'Un ami'
 
   const { data: friends = [] } = useFriends()
   const { data: pendingRequests = [] } = usePendingRequests()
@@ -307,9 +310,31 @@ export default function FriendsPage() {
             </form>
 
             {searchProfile.data === null && searchProfile.isSuccess && (
-              <p className="text-sm text-[var(--color-text-muted)] text-center py-2">
-                Aucun utilisateur trouvé avec cet e-mail
-              </p>
+              <div className="bg-[var(--color-surface)] rounded-2xl p-4 space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-[var(--color-surface-2)] flex items-center justify-center flex-shrink-0">
+                    <Mail size={18} className="text-[var(--color-text-muted)]" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm truncate">{searchEmail}</p>
+                    <p className="text-xs text-[var(--color-text-muted)]">Pas encore sur Kaizen Sport</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    const subject = encodeURIComponent(`${senderName} t'invite sur Kaizen Sport`)
+                    const body = encodeURIComponent(
+                      `Bonjour !\n\n${senderName} t'invite à rejoindre Kaizen Sport, l'application de suivi d'entraînement.\n\nTélécharge-la ici : ${window.location.origin}\n\nÀ bientôt sur l'appli !`
+                    )
+                    window.open(`mailto:${searchEmail}?subject=${subject}&body=${body}`, '_blank')
+                    toast.success('Invitation ouverte dans ta messagerie !')
+                  }}
+                  className="w-full flex items-center justify-center gap-2 bg-[var(--color-accent)] text-white font-semibold py-3 rounded-xl active-scale text-sm"
+                >
+                  <Mail size={16} />
+                  Inviter {searchEmail} par email
+                </button>
+              </div>
             )}
 
             {searchProfile.data && (
