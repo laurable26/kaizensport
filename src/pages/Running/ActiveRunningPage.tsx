@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { useRunningStore } from '@/store/runningStore'
 import { useGeolocation } from '@/hooks/useGeolocation'
 import { useCompleteRunningLog, useCheckAndSavePR } from '@/hooks/useRunning'
-import { Square, MapPin, Zap, Trophy, ChevronUp, ChevronDown } from 'lucide-react'
+import { Square, MapPin, Zap, ChevronUp, ChevronDown } from 'lucide-react'
 import toast from 'react-hot-toast'
+import RunMap from '@/components/running/RunMap'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -28,62 +29,14 @@ function formatDistance(metres: number): string {
   return `${(metres / 1000).toFixed(2)} km`
 }
 
-// ─── Composant SVG de la carte GPS ────────────────────────────────────────────
-
-function RunMap({ points }: { points: { lat: number; lng: number }[] }) {
-  if (points.length < 2) {
-    return (
-      <div className="w-full h-full flex items-center justify-center">
-        <div className="text-center opacity-40">
-          <MapPin size={32} className="mx-auto mb-2" />
-          <p className="text-xs">En attente GPS...</p>
-        </div>
-      </div>
-    )
-  }
-
-  const lats = points.map((p) => p.lat)
-  const lngs = points.map((p) => p.lng)
-  const minLat = Math.min(...lats)
-  const maxLat = Math.max(...lats)
-  const minLng = Math.min(...lngs)
-  const maxLng = Math.max(...lngs)
-  const padFactor = 0.1
-
-  const latRange = (maxLat - minLat) || 0.001
-  const lngRange = (maxLng - minLng) || 0.001
-  const padLat = latRange * padFactor
-  const padLng = lngRange * padFactor
-
-  const W = 300
-  const H = 200
-
-  const toX = (lng: number) => ((lng - minLng + padLng) / (lngRange + 2 * padLng)) * W
-  const toY = (lat: number) => H - ((lat - minLat + padLat) / (latRange + 2 * padLat)) * H
-
-  const d = points
-    .map((p, i) => `${i === 0 ? 'M' : 'L'} ${toX(p.lng).toFixed(1)} ${toY(p.lat).toFixed(1)}`)
-    .join(' ')
-
-  const last = points[points.length - 1]
-
-  return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-full" preserveAspectRatio="xMidYMid meet">
-      <path d={d} fill="none" stroke="var(--color-accent)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-      {/* Start */}
-      <circle cx={toX(points[0].lng)} cy={toY(points[0].lat)} r="5" fill="var(--color-accent)" />
-      {/* Current position */}
-      <circle cx={toX(last.lng)} cy={toY(last.lat)} r="6" fill="white" stroke="var(--color-accent)" strokeWidth="2" />
-    </svg>
-  )
-}
-
 // ─── Barre de progression d'un bloc fractionné ────────────────────────────────
 
 function IntervalBlock() {
   const { blocks, currentBlockIndex, blockSecondsRemaining, phase, sessionType } = useRunningStore()
 
-  if (sessionType !== 'interval' || blocks.length === 0) return null
+  if (blocks.length === 0) return null
+  // Afficher le bloc pour les sessions interval ET pour les sessions avec warmup/cooldown
+  if (sessionType !== 'interval' && phase !== 'warmup' && phase !== 'cooldown') return null
 
   const currentBlock = blocks[currentBlockIndex]
   if (!currentBlock) return null
@@ -329,8 +282,8 @@ export default function ActiveRunningPage() {
           </div>
         </div>
 
-        {/* Bloc fractionné */}
-        {sessionType === 'interval' && <IntervalBlock />}
+        {/* Bloc fractionné / warmup / cooldown */}
+        <IntervalBlock />
 
         {/* Carte GPS */}
         <div className="bg-[var(--color-surface)] rounded-2xl overflow-hidden">
@@ -351,8 +304,8 @@ export default function ActiveRunningPage() {
             }
           </button>
           {mapExpanded && (
-            <div className="h-48 bg-[var(--color-surface-2)] mx-4 mb-4 rounded-xl overflow-hidden">
-              <RunMap points={gpsPoints} />
+            <div className="mx-4 mb-4">
+              <RunMap points={gpsPoints} height={192} />
             </div>
           )}
         </div>

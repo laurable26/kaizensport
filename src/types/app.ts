@@ -101,10 +101,11 @@ export type ScheduledEventWithDetails = {
   id: string
   plannedDate: string
   plannedTime: string | null
-  type: 'session' | 'workout'
+  type: 'session' | 'workout' | 'running'
   name: string
   sessionId?: string
   workoutId?: string
+  runningSessionId?: string
   /** Participants (amis avec qui la séance est partagée) */
   participants?: ScheduledEventParticipant[]
 }

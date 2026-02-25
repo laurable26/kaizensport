@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { format, addWeeks, subWeeks, startOfWeek } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { ChevronLeft, ChevronRight, Plus, Calendar, Clock, Edit2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Calendar, Clock, Edit2, Footprints } from 'lucide-react'
 import { useWeekSchedule, useScheduleEvent, useDeleteScheduledEvent, useUpdateScheduledEvent } from '@/hooks/useSchedule'
 import { useSessions } from '@/hooks/useSessions'
 import { useWorkouts } from '@/hooks/useWorkouts'
+import { useRunningSessions } from '@/hooks/useRunning'
 import { useNavigate } from 'react-router-dom'
 import PageHeader from '@/components/layout/PageHeader'
 import type { WeekDay } from '@/types/app'
@@ -16,8 +17,8 @@ export default function SchedulePage() {
   const [showAddModal, setShowAddModal] = useState(false)
   // Heure choisie dans le modal
   const [pickedTime, setPickedTime] = useState<string>('')
-  // Session/workout en attente de confirmation avec heure
-  const [pendingItem, setPendingItem] = useState<{ type: 'session' | 'workout'; id: string; name: string } | null>(null)
+  // Session/workout/running en attente de confirmation avec heure
+  const [pendingItem, setPendingItem] = useState<{ type: 'session' | 'workout' | 'running'; id: string; name: string } | null>(null)
 
   // État pour modifier l'heure d'un event existant
   const [editingEventId, setEditingEventId] = useState<string | null>(null)
@@ -26,6 +27,7 @@ export default function SchedulePage() {
   const { data: weekDays = [], isLoading } = useWeekSchedule(weekStart)
   const { data: sessions = [] } = useSessions()
   const { data: workouts = [] } = useWorkouts()
+  const { data: runningSessions = [] } = useRunningSessions()
   const scheduleEvent = useScheduleEvent()
   const deleteEvent = useDeleteScheduledEvent()
   const updateEvent = useUpdateScheduledEvent()
@@ -33,21 +35,24 @@ export default function SchedulePage() {
 
   const today = format(new Date(), 'yyyy-MM-dd')
 
-  const handleSchedule = async (type: 'session' | 'workout', id: string, time?: string) => {
+  const handleSchedule = async (type: 'session' | 'workout' | 'running', id: string, time?: string) => {
     if (!selectedDate) return
     try {
       await scheduleEvent.mutateAsync({
         sessionId: type === 'session' ? id : undefined,
         workoutId: type === 'workout' ? id : undefined,
+        runningSessionId: type === 'running' ? id : undefined,
         plannedDate: selectedDate,
         plannedTime: time || undefined,
       })
       // Programmer une notification locale si une heure est définie
       if (time) {
-        scheduleLocalNotification(selectedDate, time, type === 'session'
+        const name = type === 'session'
           ? sessions.find((s) => s.id === id)?.name ?? 'Séance'
-          : workouts.find((w) => w.id === id)?.name ?? 'Workout'
-        )
+          : type === 'workout'
+          ? workouts.find((w) => w.id === id)?.name ?? 'Workout'
+          : runningSessions.find((r) => r.id === id)?.name ?? 'Course'
+        scheduleLocalNotification(selectedDate, time, name)
       }
       toast.success('Planifié !')
       setShowAddModal(false)
@@ -58,7 +63,7 @@ export default function SchedulePage() {
     }
   }
 
-  const handleSelectItem = (type: 'session' | 'workout', id: string, name: string) => {
+  const handleSelectItem = (type: 'session' | 'workout' | 'running', id: string, name: string) => {
     setPendingItem({ type, id, name })
     setPickedTime('')
   }
@@ -145,7 +150,9 @@ export default function SchedulePage() {
                 <div key={event.id} className="bg-[var(--color-surface)] rounded-2xl overflow-hidden">
                   <div className="p-4 flex items-center gap-3">
                     <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                      event.type === 'session' ? 'bg-[var(--color-accent)]' : 'bg-[var(--color-success)]'
+                      event.type === 'session' ? 'bg-[var(--color-accent)]'
+                      : event.type === 'running' ? 'bg-orange-500'
+                      : 'bg-[var(--color-success)]'
                     }`} />
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold truncate">{event.name}</p>
@@ -161,7 +168,7 @@ export default function SchedulePage() {
                           <span className="text-xs text-[var(--color-text-muted)]">Pas d'heure fixée</span>
                         )}
                         <span className="text-xs text-[var(--color-text-muted)]">
-                          · {event.type === 'session' ? 'Séance' : 'Workout'}
+                          · {event.type === 'session' ? 'Séance' : event.type === 'running' ? 'Course' : 'Workout'}
                         </span>
                       </div>
                       {/* Avatars des participants */}
@@ -204,6 +211,14 @@ export default function SchedulePage() {
                         <button
                           onClick={() => navigate(`/sessions/${event.sessionId}`)}
                           className="text-xs text-[var(--color-accent)] font-semibold"
+                        >
+                          Ouvrir
+                        </button>
+                      )}
+                      {event.type === 'running' && event.runningSessionId && (
+                        <button
+                          onClick={() => navigate(`/running/${event.runningSessionId}`)}
+                          className="text-xs text-orange-500 font-semibold"
                         >
                           Ouvrir
                         </button>
@@ -375,7 +390,26 @@ export default function SchedulePage() {
                   </div>
                 )}
 
-                {sessions.length === 0 && workouts.length === 0 && (
+                {runningSessions.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-xs font-bold text-[var(--color-text-muted)] uppercase tracking-wide flex items-center gap-1.5">
+                      <Footprints size={11} />
+                      Course
+                    </p>
+                    {runningSessions.map((r) => (
+                      <button
+                        key={r.id}
+                        onClick={() => handleSelectItem('running', r.id, r.name)}
+                        className="w-full text-left bg-[var(--color-surface-2)] rounded-xl px-4 py-3 active-scale flex items-center justify-between"
+                      >
+                        <span>{r.name}</span>
+                        <ChevronRight size={16} className="text-[var(--color-text-muted)]" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {sessions.length === 0 && workouts.length === 0 && runningSessions.length === 0 && (
                   <p className="text-sm text-[var(--color-text-muted)] text-center py-4">
                     Créez d'abord des séances ou workouts
                   </p>

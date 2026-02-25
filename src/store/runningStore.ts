@@ -14,6 +14,7 @@ interface RunningStore {
 
   // Temps écoulé
   elapsedSeconds: number
+  _startTime: number | null          // Date.now() au début pour un chrono précis
   _intervalId: ReturnType<typeof setInterval> | null
 
   // GPS et statistiques
@@ -52,6 +53,7 @@ const initialState = {
   sessionName: '',
   sessionType: 'free' as RunningSession['type'],
   elapsedSeconds: 0,
+  _startTime: null as number | null,
   _intervalId: null,
   gpsPoints: [] as GpsPoint[],
   distanceM: 0,
@@ -70,16 +72,23 @@ export const useRunningStore = create<RunningStore>((set, get) => ({
 
   startRun: ({ runLogId, runningSessionId, sessionName, sessionType, blocks }) => {
     const firstBlock = blocks[0]
-    const phase: RunPhase = sessionType === 'interval'
-      ? (firstBlock ? 'interval' : 'free')
+    const phase: RunPhase = blocks.length > 0
+      ? (firstBlock.label === 'Échauffement' ? 'warmup' : 'interval')
       : 'free'
 
-    const intervalId = setInterval(() => get()._tick(), 1000)
+    const startTime = Date.now()
+    const intervalId = setInterval(() => get()._tick(), 500) // 500ms pour précision accrue
 
     // Vibration courte = début de course
     if (navigator.vibrate) navigator.vibrate(200)
     // Son grave = c'est parti
-    playRunningBeep(330, 0.3)
+    playRunningBeep(330, 0.4)
+    // Annonce vocale du premier bloc
+    if (firstBlock) {
+      setTimeout(() => speak(firstBlock.label ?? (firstBlock.phase === 'work' ? 'Travail' : 'Échauffement')), 600)
+    } else {
+      setTimeout(() => speak('Course libre'), 600)
+    }
 
     set({
       isActive: true,
@@ -92,6 +101,7 @@ export const useRunningStore = create<RunningStore>((set, get) => ({
       blockSecondsRemaining: firstBlock?.duration_s ?? 0,
       phase,
       elapsedSeconds: 0,
+      _startTime: startTime,
       gpsPoints: [],
       distanceM: 0,
       elevationGainM: 0,
@@ -152,14 +162,19 @@ export const useRunningStore = create<RunningStore>((set, get) => ({
   },
 
   _tick: () => {
-    const { sessionType, blockSecondsRemaining, blocks } = get()
-    set((s) => ({ elapsedSeconds: s.elapsedSeconds + 1 }))
+    const { _startTime, sessionType, blockSecondsRemaining, blocks } = get()
 
-    if (sessionType === 'interval' && blocks.length > 0) {
-      if (blockSecondsRemaining <= 1) {
+    // Chrono précis basé sur Date.now()
+    if (_startTime !== null) {
+      const newElapsed = Math.floor((Date.now() - _startTime) / 1000)
+      set({ elapsedSeconds: newElapsed })
+    }
+
+    if ((sessionType === 'interval' || blocks.length > 0) && blocks.length > 0) {
+      if (blockSecondsRemaining <= 0.5) {
         get()._advanceBlock()
       } else {
-        set((s) => ({ blockSecondsRemaining: s.blockSecondsRemaining - 1 }))
+        set((s) => ({ blockSecondsRemaining: s.blockSecondsRemaining - 0.5 }))
       }
     }
   },
@@ -172,19 +187,28 @@ export const useRunningStore = create<RunningStore>((set, get) => ({
       // Tous les blocs terminés
       if (navigator.vibrate) navigator.vibrate([300, 100, 300, 100, 300])
       playDoubleRunningBeep()
+      setTimeout(() => speak('Séance terminée'), 400)
       set({ phase: 'complete', currentBlockIndex: blocks.length - 1, blockSecondsRemaining: 0 })
     } else {
       const nextBlock = blocks[nextIndex]
       // Son selon le type du prochain bloc
       if (nextBlock.phase === 'work') {
-        playRunningBeep(330, 0.2)  // grave = travail
+        playRunningBeep(330, 0.4)  // grave = travail
       } else {
-        playRunningBeep(660, 0.2)  // aigu = repos
+        playRunningBeep(660, 0.4)  // aigu = repos/warmup/cooldown
       }
       if (navigator.vibrate) navigator.vibrate(150)
+      // Phase selon le label du bloc
+      let phase: RunPhase = nextBlock.phase === 'work' ? 'interval' : 'interval'
+      if (nextBlock.label === 'Échauffement') phase = 'warmup'
+      else if (nextBlock.label === 'Retour au calme') phase = 'cooldown'
+      else phase = nextBlock.phase === 'work' ? 'interval' : 'interval'
+      // Annonce vocale
+      setTimeout(() => speak(nextBlock.label ?? (nextBlock.phase === 'work' ? 'Travail' : 'Récupération')), 400)
       set({
         currentBlockIndex: nextIndex,
         blockSecondsRemaining: nextBlock.duration_s,
+        phase,
       })
     }
   },
@@ -193,6 +217,7 @@ export const useRunningStore = create<RunningStore>((set, get) => ({
     const state = get()
     const { _intervalId } = state
     if (_intervalId) clearInterval(_intervalId)
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel()
 
     const stats: LiveRunStats = {
       elapsedSeconds: state.elapsedSeconds,
@@ -254,8 +279,8 @@ function computeRollingPace(points: GpsPoint[], windowMetres: number): number | 
   return Math.round(durationSec / (dist / 1000))
 }
 
-/** Beep simple pour la course */
-function playRunningBeep(frequency = 440, duration = 0.3) {
+/** Beep simple pour la course — volume max */
+function playRunningBeep(frequency = 440, duration = 0.4) {
   try {
     const ctx = new AudioContext()
     const osc = ctx.createOscillator()
@@ -263,7 +288,7 @@ function playRunningBeep(frequency = 440, duration = 0.3) {
     osc.connect(gain)
     gain.connect(ctx.destination)
     osc.frequency.value = frequency
-    gain.gain.setValueAtTime(0.4, ctx.currentTime)
+    gain.gain.setValueAtTime(1.0, ctx.currentTime)
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration)
     osc.start(ctx.currentTime)
     osc.stop(ctx.currentTime + duration)
@@ -280,12 +305,25 @@ function playDoubleRunningBeep() {
       osc.connect(gain)
       gain.connect(ctx.destination)
       osc.frequency.value = freq
-      gain.gain.setValueAtTime(0.4, startAt)
-      gain.gain.exponentialRampToValueAtTime(0.001, startAt + 0.3)
+      gain.gain.setValueAtTime(1.0, startAt)
+      gain.gain.exponentialRampToValueAtTime(0.001, startAt + 0.4)
       osc.start(startAt)
-      osc.stop(startAt + 0.3)
+      osc.stop(startAt + 0.4)
     }
     makeBeep(ctx.currentTime, 880)
-    makeBeep(ctx.currentTime + 0.35, 1100)
+    makeBeep(ctx.currentTime + 0.45, 1100)
   } catch { /* Audio non disponible */ }
+}
+
+/** Synthèse vocale française */
+function speak(text: string) {
+  if (!('speechSynthesis' in window)) return
+  try {
+    window.speechSynthesis.cancel()
+    const utt = new SpeechSynthesisUtterance(text)
+    utt.lang = 'fr-FR'
+    utt.rate = 1.1
+    utt.volume = 1.0
+    window.speechSynthesis.speak(utt)
+  } catch { /* Synthèse vocale non disponible */ }
 }

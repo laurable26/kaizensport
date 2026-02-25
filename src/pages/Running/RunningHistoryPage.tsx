@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { useRunningLogs, useRunningLogDetail, useRunningPRs, useRunningStats } from '@/hooks/useRunning'
 import PageHeader from '@/components/layout/PageHeader'
-import { Footprints, Trophy, TrendingUp, Calendar, ChevronRight, MapPin } from 'lucide-react'
+import { Footprints, Trophy, TrendingUp, Calendar, ChevronRight } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { fr } from 'date-fns/locale'
+import RunMap from '@/components/running/RunMap'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -44,43 +45,6 @@ function formatPrTime(seconds: number): string {
   return `${m}'${String(s).padStart(2, '0')}`
 }
 
-// ─── SVG mini-tracé ───────────────────────────────────────────────────────────
-
-function MiniMap({ gpsTrack }: { gpsTrack: { lat: number; lng: number }[] | null }) {
-  if (!gpsTrack || gpsTrack.length < 2) {
-    return <div className="w-full h-full flex items-center justify-center opacity-30"><MapPin size={20} /></div>
-  }
-
-  const lats = gpsTrack.map((p) => p.lat)
-  const lngs = gpsTrack.map((p) => p.lng)
-  const minLat = Math.min(...lats)
-  const maxLat = Math.max(...lats)
-  const minLng = Math.min(...lngs)
-  const maxLng = Math.max(...lngs)
-  const padFactor = 0.15
-
-  const latRange = (maxLat - minLat) || 0.001
-  const lngRange = (maxLng - minLng) || 0.001
-  const padLat = latRange * padFactor
-  const padLng = lngRange * padFactor
-
-  const W = 80
-  const H = 60
-
-  const toX = (lng: number) => ((lng - minLng + padLng) / (lngRange + 2 * padLng)) * W
-  const toY = (lat: number) => H - ((lat - minLat + padLat) / (latRange + 2 * padLat)) * H
-
-  const d = gpsTrack
-    .map((p, i) => `${i === 0 ? 'M' : 'L'} ${toX(p.lng).toFixed(1)} ${toY(p.lat).toFixed(1)}`)
-    .join(' ')
-
-  return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-full">
-      <path d={d} fill="none" stroke="var(--color-accent)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
-}
-
 // ─── Detail drawer ────────────────────────────────────────────────────────────
 
 function LogDetail({ logId, onClose }: { logId: string; onClose: () => void }) {
@@ -102,9 +66,13 @@ function LogDetail({ logId, onClose }: { logId: string; onClose: () => void }) {
         style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
       >
         {/* Map */}
-        <div className="h-36 bg-[var(--color-surface-2)]">
-          <MiniMap gpsTrack={gpsTrack} />
-        </div>
+        {gpsTrack && gpsTrack.length >= 2 ? (
+          <RunMap points={gpsTrack} height={144} className="rounded-none" />
+        ) : (
+          <div className="h-36 bg-[var(--color-surface-2)] flex items-center justify-center opacity-30">
+            <Footprints size={32} />
+          </div>
+        )}
 
         <div className="p-5 space-y-4">
           <div className="flex items-center justify-between">
@@ -215,8 +183,11 @@ export default function RunningHistoryPage() {
                   className="w-full bg-[var(--color-surface)] rounded-2xl p-4 flex items-center gap-4 active-scale text-left"
                 >
                   {/* Mini map */}
-                  <div className="w-16 h-12 rounded-xl bg-[var(--color-surface-2)] overflow-hidden flex-shrink-0">
-                    <MiniMap gpsTrack={(log as any).gps_track ?? null} />
+                  <div className="w-16 h-12 rounded-xl overflow-hidden flex-shrink-0 bg-[var(--color-surface-2)]">
+                    {(log as any).gps_track?.length >= 2
+                      ? <RunMap points={(log as any).gps_track} height={48} className="rounded-xl" />
+                      : <div className="w-full h-full flex items-center justify-center opacity-30"><Footprints size={16} /></div>
+                    }
                   </div>
 
                   <div className="flex-1 min-w-0">

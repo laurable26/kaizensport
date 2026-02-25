@@ -86,12 +86,46 @@ export default function RunningDetailPage() {
   const handleStart = async () => {
     try {
       const log = await startRunningLog.mutateAsync(session.id)
+
+      // Construire les blocs complets avec échauffement et retour au calme
+      const warmupBlock: ExpandedIntervalBlock[] = session.warmup_duration_s && session.warmup_duration_s > 0
+        ? [{
+            id: 'warmup',
+            running_session_id: session.id,
+            order_index: -1,
+            label: 'Échauffement',
+            phase: 'rest' as const,
+            duration_s: session.warmup_duration_s,
+            target_pace_min_km: null,
+            repetitions: 1,
+            repetitionIndex: 1,
+            totalRepetitions: 1,
+          }]
+        : []
+
+      const cooldownBlock: ExpandedIntervalBlock[] = session.cooldown_duration_s && session.cooldown_duration_s > 0
+        ? [{
+            id: 'cooldown',
+            running_session_id: session.id,
+            order_index: 999,
+            label: 'Retour au calme',
+            phase: 'rest' as const,
+            duration_s: session.cooldown_duration_s,
+            target_pace_min_km: null,
+            repetitions: 1,
+            repetitionIndex: 1,
+            totalRepetitions: 1,
+          }]
+        : []
+
+      const allBlocks = [...warmupBlock, ...expanded, ...cooldownBlock]
+
       startRun({
         runLogId: log.id,
         runningSessionId: session.id,
         sessionName: session.name,
         sessionType: session.type as 'free' | 'distance' | 'duration' | 'interval',
-        blocks: expanded,
+        blocks: allBlocks,
       })
       navigate('/running/active')
     } catch {

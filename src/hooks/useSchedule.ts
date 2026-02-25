@@ -17,7 +17,7 @@ export function useWeekSchedule(weekStart: Date) {
       const [eventsRes, sharedRes] = await Promise.all([
         supabase
           .from('scheduled_events')
-          .select('*, sessions(name), workouts(name)')
+          .select('*, sessions(name), workouts(name), running_sessions(name)')
           .gte('planned_date', start)
           .lte('planned_date', end)
           .order('planned_date')
@@ -75,16 +75,24 @@ export function useWeekSchedule(weekStart: Date) {
 
         const events = (eventsRes.data ?? [])
           .filter((e) => e.planned_date === dateStr)
-          .map((e): ScheduledEventWithDetails => ({
-            id: e.id,
-            plannedDate: e.planned_date,
-            plannedTime: e.planned_time,
-            type: e.session_id ? 'session' : 'workout',
-            name: (e.sessions as { name: string } | null)?.name ?? (e.workouts as { name: string } | null)?.name ?? '',
-            sessionId: e.session_id ?? undefined,
-            workoutId: e.workout_id ?? undefined,
-            participants: e.session_id ? (participantsMap[e.session_id] ?? []) : [],
-          }))
+          .map((e): ScheduledEventWithDetails => {
+            const type = e.session_id ? 'session' : e.workout_id ? 'workout' : 'running'
+            const name = (e.sessions as { name: string } | null)?.name
+              ?? (e.workouts as { name: string } | null)?.name
+              ?? (e.running_sessions as { name: string } | null)?.name
+              ?? ''
+            return {
+              id: e.id,
+              plannedDate: e.planned_date,
+              plannedTime: e.planned_time,
+              type,
+              name,
+              sessionId: e.session_id ?? undefined,
+              workoutId: e.workout_id ?? undefined,
+              runningSessionId: e.running_session_id ?? undefined,
+              participants: e.session_id ? (participantsMap[e.session_id] ?? []) : [],
+            }
+          })
 
         days.push({
           date,
@@ -105,11 +113,13 @@ export function useScheduleEvent() {
     mutationFn: async ({
       sessionId,
       workoutId,
+      runningSessionId,
       plannedDate,
       plannedTime,
     }: {
       sessionId?: string
       workoutId?: string
+      runningSessionId?: string
       plannedDate: string
       plannedTime?: string
     }) => {
@@ -122,6 +132,7 @@ export function useScheduleEvent() {
           user_id: user.id,
           session_id: sessionId ?? null,
           workout_id: workoutId ?? null,
+          running_session_id: runningSessionId ?? null,
           planned_date: plannedDate,
           planned_time: plannedTime ?? null,
         })
