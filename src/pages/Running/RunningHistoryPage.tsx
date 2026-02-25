@@ -2,10 +2,9 @@ import { useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useRunningLogs, useRunningLogDetail, useRunningPRs, useRunningStats } from '@/hooks/useRunning'
 import PageHeader from '@/components/layout/PageHeader'
-import { Footprints, Trophy, TrendingUp, Calendar, ChevronRight, Share2 } from 'lucide-react'
+import { Footprints, Trophy, TrendingUp, Calendar, ChevronRight } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import toast from 'react-hot-toast'
 import RunMap from '@/components/running/RunMap'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -112,34 +111,12 @@ function LogDetail({ logId, onClose }: { logId: string; onClose: () => void }) {
             </p>
           )}
 
-          <div className="flex gap-2">
-            <button
-              onClick={async () => {
-                const parts = [
-                  `Course du ${log.started_at ? format(parseISO(log.started_at), 'd MMM yyyy', { locale: fr }) : ''} 🏃‍♂️`,
-                  log.distance_m ? `📍 ${formatDistance(log.distance_m)}` : null,
-                  log.duration_s ? `⏱️ ${formatDuration(log.duration_s)}` : null,
-                  log.avg_pace_s_per_km ? `📈 ${formatPace(log.avg_pace_s_per_km)}` : null,
-                ].filter(Boolean).join(' — ')
-                if (navigator.share) {
-                  try { await navigator.share({ title: 'Ma course', text: parts }) } catch {}
-                } else {
-                  await navigator.clipboard.writeText(parts)
-                  toast.success('Stats copiées !')
-                }
-              }}
-              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-[var(--color-surface-2)] font-semibold text-sm active-scale"
-            >
-              <Share2 size={15} />
-              Partager
-            </button>
-            <button
-              onClick={onClose}
-              className="flex-1 py-3 rounded-xl bg-[var(--color-surface-2)] font-semibold text-sm active-scale"
-            >
-              Fermer
-            </button>
-          </div>
+          <button
+            onClick={onClose}
+            className="w-full py-3 rounded-xl bg-[var(--color-surface-2)] font-semibold text-sm active-scale"
+          >
+            Fermer
+          </button>
         </div>
       </div>
     </div>

@@ -18,6 +18,11 @@ import {
   useAcceptSharedSession,
   useDeclineSharedSession,
 } from '@/hooks/useSharedSessions'
+import {
+  usePendingSharedRunningSessions,
+  useAcceptSharedRunningSession,
+  useDeclineSharedRunningSession,
+} from '@/hooks/useSharedRunningSessions'
 import { useAppModeStore } from '@/store/appModeStore'
 import { useRunningStore } from '@/store/runningStore'
 import { useAuth } from '@/hooks/useAuth'
@@ -167,6 +172,7 @@ export default function FriendsPage() {
   const { data: pendingRequests = [] } = usePendingRequests()
   const { data: runInvites = [] } = useRunInvites()
   const { data: sharedSessionInvites = [] } = usePendingSharedSessions()
+  const { data: sharedRunningInvites = [] } = usePendingSharedRunningSessions()
   const searchProfile = useSearchProfile()
   const sendRequest = useSendFriendRequest()
   const respondRequest = useRespondFriendRequest()
@@ -175,6 +181,8 @@ export default function FriendsPage() {
   const inviteToRun = useInviteToRun()
   const acceptSharedSession = useAcceptSharedSession()
   const declineSharedSession = useDeclineSharedSession()
+  const acceptSharedRunning = useAcceptSharedRunningSession()
+  const declineSharedRunning = useDeclineSharedRunningSession()
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -272,6 +280,64 @@ export default function FriendsPage() {
                       </button>
                       <button
                         onClick={() => declineSharedSession.mutateAsync(invite.id)}
+                        className="flex-1 bg-[var(--color-surface)] text-[var(--color-text-muted)] text-xs font-semibold py-2 rounded-lg active-scale"
+                      >
+                        Ignorer
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Bannière : plans de course partagés */}
+      {sharedRunningInvites.length > 0 && (
+        <div className="mx-4 mt-3 space-y-2">
+          {sharedRunningInvites.map((invite) => {
+            const inviterName = (invite.inviter as any)?.full_name ?? (invite.inviter as any)?.email ?? 'Quelqu\'un'
+            const sessionName = (invite.source_session as any)?.name ?? 'un plan de course'
+            const hasSuggestedDate = invite.suggested_date
+            return (
+              <div key={invite.id} className="bg-orange-500/10 border border-orange-500/30 rounded-2xl p-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-full bg-orange-500/20 flex items-center justify-center flex-shrink-0">
+                    <Footprints size={16} className="text-orange-500" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold leading-snug">
+                      <span className="text-orange-500">{inviterName}</span> te partage <span className="text-[var(--color-text)]">« {sessionName} »</span>
+                    </p>
+                    {hasSuggestedDate && (
+                      <p className="text-xs text-[var(--color-text-muted)] mt-0.5 flex items-center gap-1">
+                        <Calendar size={11} />
+                        Suggéré le {format(new Date(invite.suggested_date!), 'd MMM', { locale: fr })}
+                        {invite.suggested_time && ` à ${invite.suggested_time.slice(0, 5)}`}
+                      </p>
+                    )}
+                    <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
+                      Le plan sera copié dans ton compte
+                    </p>
+                    <div className="flex gap-2 mt-2">
+                      <button
+                        onClick={async () => {
+                          try {
+                            const newId = await acceptSharedRunning.mutateAsync(invite)
+                            toast.success('Plan ajouté dans ton compte !')
+                            navigate(`/running/${newId}`)
+                          } catch {
+                            toast.error('Erreur lors de l\'acceptation')
+                          }
+                        }}
+                        disabled={acceptSharedRunning.isPending}
+                        className="flex-1 bg-orange-500 text-white text-xs font-semibold py-2 rounded-lg active-scale disabled:opacity-60"
+                      >
+                        {acceptSharedRunning.isPending ? 'Copie en cours...' : 'Accepter le plan'}
+                      </button>
+                      <button
+                        onClick={() => declineSharedRunning.mutateAsync(invite.id)}
                         className="flex-1 bg-[var(--color-surface)] text-[var(--color-text-muted)] text-xs font-semibold py-2 rounded-lg active-scale"
                       >
                         Ignorer

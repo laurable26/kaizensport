@@ -2,7 +2,7 @@ import { format, startOfWeek, differenceInMinutes, parseISO } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { useAuth } from '@/hooks/useAuth'
 import { useSessionLogs } from '@/hooks/useSessionLog'
-import { useWeekSchedule, useSkippedSessions } from '@/hooks/useSchedule'
+import { useWeekSchedule } from '@/hooks/useSchedule'
 import { useRunningStats, useRunningLogs, useStartRunningLog } from '@/hooks/useRunning'
 import { useRunningStore } from '@/store/runningStore'
 import { useNavigate } from 'react-router-dom'
@@ -35,7 +35,6 @@ export default function DashboardPage() {
   const { data: runningStats } = useRunningStats()
   const today = new Date()
   const { data: weekDays = [] } = useWeekSchedule(today)
-  const { data: skippedCount = 0 } = useSkippedSessions()
   const navigate = useNavigate()
   const { isActive } = useRunningStore()
   const startRunningLog = useStartRunningLog()
@@ -55,14 +54,6 @@ export default function DashboardPage() {
     if (!l.completed_at) return acc
     return acc + differenceInMinutes(new Date(l.completed_at), new Date(l.started_at))
   }, 0)
-
-  const totalTimeMin = completedLogs.reduce((acc, l) => {
-    if (!l.completed_at) return acc
-    return acc + differenceInMinutes(new Date(l.completed_at), new Date(l.started_at))
-  }, 0)
-
-  const avgSessionMin = completedLogs.length > 0 ? Math.round(totalTimeMin / completedLogs.length) : 60
-  const missedTimeMin = skippedCount * avgSessionMin
 
   const displayName = user?.user_metadata?.full_name
     ?? user?.user_metadata?.name
@@ -160,24 +151,10 @@ export default function DashboardPage() {
             <p className="text-xs text-[var(--color-text-muted)] mt-1 leading-tight">Total réalisées</p>
           </div>
           <div className="bg-[var(--color-surface)] rounded-2xl p-4">
-            <p className={`text-2xl font-black ${skippedCount > 0 ? 'text-[var(--color-danger)]' : 'text-[var(--color-text-muted)]'}`}>
-              {skippedCount}
-            </p>
-            <p className="text-xs text-[var(--color-text-muted)] mt-1 leading-tight">Manquées</p>
-          </div>
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          <div className="bg-[var(--color-surface)] rounded-2xl p-4">
             <p className="text-lg font-black text-[var(--color-accent)] leading-tight">
               {timeThisWeekMin > 0 ? formatMinutes(timeThisWeekMin) : '—'}
             </p>
             <p className="text-xs text-[var(--color-text-muted)] mt-1 leading-tight">Temps semaine</p>
-          </div>
-          <div className="bg-[var(--color-surface)] rounded-2xl p-4">
-            <p className={`text-lg font-black leading-tight ${missedTimeMin > 0 ? 'text-[var(--color-danger)]' : 'text-[var(--color-text-muted)]'}`}>
-              {missedTimeMin > 0 ? formatMinutes(missedTimeMin) : '—'}
-            </p>
-            <p className="text-xs text-[var(--color-text-muted)] mt-1 leading-tight">Temps manqué</p>
           </div>
         </div>
       </div>
