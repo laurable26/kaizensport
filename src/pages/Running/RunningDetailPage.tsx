@@ -131,6 +131,8 @@ export default function RunningDetailPage() {
         sessionName: session.name,
         sessionType: session.type as 'free' | 'distance' | 'duration' | 'interval',
         blocks: allBlocks,
+        targetDistanceM: session.target_distance_m ?? null,
+        targetDurationS: session.target_duration_s ?? null,
       })
       navigate('/running/active')
     } catch {
@@ -153,7 +155,7 @@ export default function RunningDetailPage() {
         }
       />
 
-      <div className="px-4 py-4 space-y-4 pb-32">
+      <div className="px-4 py-4 space-y-4">
         {/* Type badge + meta */}
         <div className="bg-[var(--color-surface)] rounded-2xl p-4 space-y-3">
           <div className="flex items-center gap-3">
@@ -246,13 +248,8 @@ export default function RunningDetailPage() {
             </div>
           </div>
         )}
-      </div>
 
-      {/* Sticky CTA */}
-      <div
-        className="fixed bottom-0 left-0 right-0 px-4 pb-4 pt-3 bg-[var(--color-bg)]/80 backdrop-blur-sm border-t border-[var(--color-border)]"
-        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 1rem)' }}
-      >
+        {/* CTA Lancer la course */}
         <button
           onClick={handleStart}
           disabled={startRunningLog.isPending}
@@ -262,6 +259,7 @@ export default function RunningDetailPage() {
           {startRunningLog.isPending ? 'Démarrage...' : 'Lancer la course'}
         </button>
       </div>
+
     </div>
   )
 }

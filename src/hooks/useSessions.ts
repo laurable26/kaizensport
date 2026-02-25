@@ -39,6 +39,7 @@ export function useSessions() {
           *,
           session_exercises(sets_planned, rest_seconds, target_reps, target_duration_seconds)
         `)
+        .is('archived_at', null)
         .order('name')
       if (error) throw error
       return data as SessionWithMeta[]
@@ -160,6 +161,20 @@ export function useDeleteSession() {
   return useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from('sessions').delete().eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['sessions'] }),
+  })
+}
+
+export function useArchiveSession() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('sessions')
+        .update({ archived_at: new Date().toISOString() })
+        .eq('id', id)
       if (error) throw error
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['sessions'] }),

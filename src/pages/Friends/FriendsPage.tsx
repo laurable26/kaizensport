@@ -10,7 +10,9 @@ import {
   useRunInvites,
   useRespondRunInvite,
   useInviteToRun,
+  useFriendStats,
 } from '@/hooks/useFriends'
+import type { Profile } from '@/hooks/useFriends'
 import {
   usePendingSharedSessions,
   useAcceptSharedSession,
@@ -19,16 +21,130 @@ import {
 import { useAppModeStore } from '@/store/appModeStore'
 import { useRunningStore } from '@/store/runningStore'
 import { useAuth } from '@/hooks/useAuth'
-import { UserPlus, UserCheck, UserX, Search, Users, Footprints, Share2, Copy, Check as CheckIcon, Dumbbell, Calendar } from 'lucide-react'
+import { UserPlus, UserCheck, UserX, Search, Users, Footprints, Share2, Copy, Check as CheckIcon, Dumbbell, Calendar, X, ChevronRight } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useNavigate } from 'react-router-dom'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 
+// ─── Drawer de stats ami ───────────────────────────────────────────────────────
+
+function formatDistance(metres: number): string {
+  if (metres < 1000) return `${Math.round(metres)} m`
+  return `${(metres / 1000).toFixed(1)} km`
+}
+
+function formatDurationShort(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`
+  const h = Math.floor(seconds / 3600)
+  const m = Math.floor((seconds % 3600) / 60)
+  if (h > 0) return `${h}h${m > 0 ? String(m).padStart(2, '0') : ''}`
+  return `${m} min`
+}
+
+function FriendStatsDrawer({ friend, onClose }: { friend: Profile; onClose: () => void }) {
+  const { data: stats, isLoading } = useFriendStats(friend.id)
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col justify-end bg-black/60" onClick={onClose}>
+      <div
+        className="bg-[var(--color-surface)] rounded-t-3xl p-5 space-y-5 max-h-[75vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 1.25rem)' }}
+      >
+        {/* Handle */}
+        <div className="w-10 h-1 bg-[var(--color-border)] rounded-full mx-auto" />
+
+        {/* Identité */}
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-full bg-[var(--color-accent)]/20 flex items-center justify-center flex-shrink-0">
+            <span className="text-[var(--color-accent)] font-bold text-lg uppercase">
+              {(friend.full_name ?? friend.email ?? '?')[0]}
+            </span>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-bold text-base truncate">{friend.full_name ?? friend.email}</p>
+            {friend.full_name && (
+              <p className="text-xs text-[var(--color-text-muted)] truncate">{friend.email}</p>
+            )}
+          </div>
+          <button onClick={onClose} className="p-2 text-[var(--color-text-muted)]">
+            <X size={20} />
+          </button>
+        </div>
+
+        {isLoading ? (
+          <div className="space-y-3">
+            <div className="h-20 bg-[var(--color-surface-2)] rounded-2xl animate-pulse" />
+            <div className="h-20 bg-[var(--color-surface-2)] rounded-2xl animate-pulse" />
+          </div>
+        ) : !stats ? (
+          <p className="text-sm text-center text-[var(--color-text-muted)] py-4">
+            Statistiques non disponibles
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {/* Stats muscu */}
+            <div className="bg-[var(--color-surface-2)] rounded-2xl p-4 space-y-2">
+              <div className="flex items-center gap-2 mb-3">
+                <Dumbbell size={16} className="text-[var(--color-accent)]" />
+                <p className="text-xs font-bold uppercase tracking-wide text-[var(--color-text-muted)]">Musculation</p>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-[var(--color-text-muted)]">Séances terminées</span>
+                <span className="font-bold">{stats.muscu.total_sessions}</span>
+              </div>
+              {stats.muscu.last_session_at && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-[var(--color-text-muted)]">Dernière séance</span>
+                  <span className="font-semibold text-sm">
+                    {format(new Date(stats.muscu.last_session_at), 'd MMM yyyy', { locale: fr })}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Stats running */}
+            <div className="bg-[var(--color-surface-2)] rounded-2xl p-4 space-y-2">
+              <div className="flex items-center gap-2 mb-3">
+                <Footprints size={16} className="text-orange-500" />
+                <p className="text-xs font-bold uppercase tracking-wide text-[var(--color-text-muted)]">Course</p>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-[var(--color-text-muted)]">Courses terminées</span>
+                <span className="font-bold">{stats.running.total_runs}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-[var(--color-text-muted)]">Distance totale</span>
+                <span className="font-bold">{formatDistance(stats.running.total_distance_m)}</span>
+              </div>
+              {stats.running.total_duration_s > 0 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-[var(--color-text-muted)]">Temps total</span>
+                  <span className="font-semibold text-sm">{formatDurationShort(stats.running.total_duration_s)}</span>
+                </div>
+              )}
+              {stats.running.last_run_at && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-[var(--color-text-muted)]">Dernière course</span>
+                  <span className="font-semibold text-sm">
+                    {format(new Date(stats.running.last_run_at), 'd MMM yyyy', { locale: fr })}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function FriendsPage() {
   const [tab, setTab] = useState<'friends' | 'add'>('friends')
   const [searchEmail, setSearchEmail] = useState('')
   const [copied, setCopied] = useState(false)
+  const [selectedFriend, setSelectedFriend] = useState<Profile | null>(null)
   const navigate = useNavigate()
   const mode = useAppModeStore((s) => s.mode)
   const { isActive: isRunActive, runLogId } = useRunningStore()
@@ -236,7 +352,11 @@ export default function FriendsPage() {
               </div>
             ) : (
               friends.map((f) => (
-                <div key={f.id} className="bg-[var(--color-surface)] rounded-2xl p-4 flex items-center gap-3">
+                <div
+                  key={f.id}
+                  className="bg-[var(--color-surface)] rounded-2xl p-4 flex items-center gap-3 active-scale cursor-pointer"
+                  onClick={() => f.friend && setSelectedFriend(f.friend)}
+                >
                   <div className="w-10 h-10 rounded-full bg-[var(--color-accent)]/20 flex items-center justify-center flex-shrink-0">
                     <span className="text-[var(--color-accent)] font-bold text-sm uppercase">
                       {(f.friend?.full_name ?? f.friend?.email ?? '?')[0]}
@@ -251,14 +371,12 @@ export default function FriendsPage() {
                   {/* Inviter sur le run en cours */}
                   {mode === 'running' && isRunActive && runLogId && (
                     <button
-                      onClick={async () => {
+                      onClick={(e) => {
+                        e.stopPropagation()
                         if (!f.friend?.id) return
-                        try {
-                          await inviteToRun.mutateAsync({ runLogId, inviteeId: f.friend.id })
-                          toast.success(`Invitation envoyée à ${f.friend?.full_name ?? f.friend?.email}`)
-                        } catch {
-                          toast.error('Erreur')
-                        }
+                        inviteToRun.mutateAsync({ runLogId, inviteeId: f.friend.id })
+                          .then(() => toast.success(`Invitation envoyée à ${f.friend?.full_name ?? f.friend?.email}`))
+                          .catch(() => toast.error('Erreur'))
                       }}
                       disabled={inviteToRun.isPending}
                       className="p-2 text-[var(--color-accent)] active-scale"
@@ -268,11 +386,12 @@ export default function FriendsPage() {
                     </button>
                   )}
                   <button
-                    onClick={() => handleRemove(f.id)}
+                    onClick={(e) => { e.stopPropagation(); handleRemove(f.id) }}
                     className="p-2 text-[var(--color-text-muted)] active-scale"
                   >
                     <UserX size={16} />
                   </button>
+                  <ChevronRight size={14} className="text-[var(--color-text-muted)] flex-shrink-0" />
                 </div>
               ))
             )}
@@ -426,6 +545,13 @@ export default function FriendsPage() {
           </>
         )}
       </div>
+
+      {selectedFriend && (
+        <FriendStatsDrawer
+          friend={selectedFriend}
+          onClose={() => setSelectedFriend(null)}
+        />
+      )}
     </div>
   )
 }

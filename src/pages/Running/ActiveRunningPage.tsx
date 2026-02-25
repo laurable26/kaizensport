@@ -233,6 +233,15 @@ export default function ActiveRunningPage() {
         }
       }
 
+      // Félicitations vocales après la sauvegarde (endRun() a annulé la synthèse précédente)
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel()
+        const utt = new SpeechSynthesisUtterance('Félicitations pour ce run !')
+        utt.lang = 'fr-FR'
+        utt.volume = 1.0
+        window.speechSynthesis.speak(utt)
+      }
+
       reset()
       navigate('/running/history', { replace: true })
     } catch {
@@ -306,14 +315,21 @@ export default function ActiveRunningPage() {
                     Suivant : {nextBlock.label ?? (nextBlock.phase === 'work' ? 'Travail' : 'Repos')} — {fmtDur(nextBlock.duration_s)}
                   </p>
                 )}
+                {/* Stats compactes : distance + allure courante */}
+                <div className="flex items-center justify-center gap-8 mt-2">
+                  <div className="text-center">
+                    <p className="text-2xl font-bold">{(distanceM / 1000).toFixed(2)}</p>
+                    <p className="text-xs text-[var(--color-text-muted)]">km</p>
+                  </div>
+                  {currentPaceSecPerKm != null && currentPaceSecPerKm > 0 && currentPaceSecPerKm < 3600 && (
+                    <div className="text-center">
+                      <p className="text-2xl font-bold">{formatPace(currentPaceSecPerKm)}</p>
+                      <p className="text-xs text-[var(--color-text-muted)]">allure</p>
+                    </div>
+                  )}
+                </div>
               </div>
             ) : null}
-
-            {/* Distance compacte */}
-            <div className="text-center">
-              <p className="text-xl font-bold">{formatDistance(distanceM)}</p>
-              <p className="text-xs text-[var(--color-text-muted)]">Distance</p>
-            </div>
           </>
         ) : (
           <>

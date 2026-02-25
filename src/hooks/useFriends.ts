@@ -1,6 +1,23 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 
+export type FriendMuscuStats = {
+  total_sessions: number
+  last_session_at: string | null
+}
+
+export type FriendRunningStats = {
+  total_runs: number
+  total_distance_m: number
+  total_duration_s: number
+  last_run_at: string | null
+}
+
+export type FriendStats = {
+  muscu: FriendMuscuStats
+  running: FriendRunningStats
+} | null
+
 export type Profile = {
   id: string
   email: string
@@ -288,5 +305,21 @@ export function useRespondSessionInvite() {
       if (error) throw error
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['session-invites'] }),
+  })
+}
+
+// Fetch stats of a friend (uses get_friend_stats DB function, SECURITY DEFINER)
+export function useFriendStats(friendId: string | null) {
+  return useQuery({
+    queryKey: ['friend-stats', friendId],
+    enabled: !!friendId,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_friend_stats', { p_friend_id: friendId })
+      if (error) {
+        console.warn('[useFriendStats]', error.message)
+        return null
+      }
+      return data as FriendStats
+    },
   })
 }

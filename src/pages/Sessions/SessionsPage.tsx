@@ -1,15 +1,36 @@
 import { useState } from 'react'
-import { useSessions, estimateSessionDuration } from '@/hooks/useSessions'
-import { useRunningSessions } from '@/hooks/useRunning'
+import { useSessions, estimateSessionDuration, useArchiveSession } from '@/hooks/useSessions'
+import { useRunningSessions, useArchiveRunningSession } from '@/hooks/useRunning'
 import { useNavigate } from 'react-router-dom'
 import PageHeader from '@/components/layout/PageHeader'
-import { Plus, Timer, Play, Dumbbell, Footprints, X } from 'lucide-react'
+import { Plus, Timer, Play, Dumbbell, Footprints, X, Trash2 } from 'lucide-react'
+import toast from 'react-hot-toast'
+
+type SessionToDelete = { id: string; name: string; kind: 'muscu' | 'running' }
 
 export default function SessionsPage() {
   const { data: sessions = [], isLoading: loadingMuscu } = useSessions()
   const { data: runningSessions = [], isLoading: loadingRunning } = useRunningSessions()
   const navigate = useNavigate()
   const [showMenu, setShowMenu] = useState(false)
+  const [sessionToDelete, setSessionToDelete] = useState<SessionToDelete | null>(null)
+  const archiveSession = useArchiveSession()
+  const archiveRunningSession = useArchiveRunningSession()
+
+  const handleArchive = async () => {
+    if (!sessionToDelete) return
+    try {
+      if (sessionToDelete.kind === 'muscu') {
+        await archiveSession.mutateAsync(sessionToDelete.id)
+      } else {
+        await archiveRunningSession.mutateAsync(sessionToDelete.id)
+      }
+      toast.success('Séance supprimée')
+      setSessionToDelete(null)
+    } catch {
+      toast.error('Erreur lors de la suppression')
+    }
+  }
 
   const isLoading = loadingMuscu || loadingRunning
   const hasAny = sessions.length > 0 || runningSessions.length > 0
@@ -105,6 +126,12 @@ export default function SessionsPage() {
                         </p>
                       </button>
                       <button
+                        onClick={(e) => { e.stopPropagation(); setSessionToDelete({ id: session.id, name: session.name, kind: 'muscu' }) }}
+                        className="p-2 text-[var(--color-text-muted)] hover:text-red-400 active-scale flex-shrink-0"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                      <button
                         onClick={() => navigate(`/sessions/${session.id}`)}
                         className="w-10 h-10 rounded-xl bg-[var(--color-accent)] flex items-center justify-center active-scale flex-shrink-0"
                       >
@@ -142,6 +169,12 @@ export default function SessionsPage() {
                         <p className="text-xs text-[var(--color-text-muted)] mt-0.5">{typeLabel}</p>
                       </button>
                       <button
+                        onClick={(e) => { e.stopPropagation(); setSessionToDelete({ id: rs.id, name: rs.name, kind: 'running' }) }}
+                        className="p-2 text-[var(--color-text-muted)] hover:text-red-400 active-scale flex-shrink-0"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                      <button
                         onClick={() => navigate(`/running/${rs.id}`)}
                         className="w-10 h-10 rounded-xl bg-orange-500 flex items-center justify-center active-scale flex-shrink-0"
                       >
@@ -155,6 +188,40 @@ export default function SessionsPage() {
           </>
         )}
       </div>
+
+      {/* Confirmation suppression */}
+      {sessionToDelete && (
+        <div className="fixed inset-0 z-50 flex flex-col justify-end bg-black/60" onClick={() => setSessionToDelete(null)}>
+          <div
+            className="bg-[var(--color-surface)] rounded-t-3xl p-5 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+            style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 1.25rem)' }}
+          >
+            <div className="w-10 h-1 bg-[var(--color-border)] rounded-full mx-auto" />
+            <div className="space-y-1">
+              <p className="font-bold text-base">Supprimer cette séance ?</p>
+              <p className="text-sm text-[var(--color-text-muted)]">
+                « {sessionToDelete.name} » sera retirée de l'onglet Séances. L'historique et la planification sont conservés.
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setSessionToDelete(null)}
+                className="flex-1 py-3 rounded-xl bg-[var(--color-surface-2)] font-semibold text-sm active-scale"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleArchive}
+                disabled={archiveSession.isPending || archiveRunningSession.isPending}
+                className="flex-1 py-3 rounded-xl bg-red-500 text-white font-semibold text-sm active-scale disabled:opacity-60"
+              >
+                {archiveSession.isPending || archiveRunningSession.isPending ? 'Suppression...' : 'Supprimer'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

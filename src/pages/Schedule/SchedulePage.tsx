@@ -84,9 +84,21 @@ export default function SchedulePage() {
         <button onClick={() => setWeekStart(subWeeks(weekStart, 1))} className="p-2 active-scale">
           <ChevronLeft size={20} />
         </button>
-        <span className="text-sm font-semibold capitalize">
-          {format(weekStart, "MMMM yyyy", { locale: fr })}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-semibold capitalize">
+            {format(weekStart, "MMMM yyyy", { locale: fr })}
+          </span>
+          <button
+            onClick={() => {
+              const todayDate = new Date()
+              setWeekStart(startOfWeek(todayDate, { weekStartsOn: 1 }))
+              setSelectedDate(format(todayDate, 'yyyy-MM-dd'))
+            }}
+            className="text-xs font-semibold text-[var(--color-accent)] bg-[var(--color-accent)]/10 px-3 py-1 rounded-full active-scale"
+          >
+            Aujourd'hui
+          </button>
+        </div>
         <button onClick={() => setWeekStart(addWeeks(weekStart, 1))} className="p-2 active-scale">
           <ChevronRight size={20} />
         </button>

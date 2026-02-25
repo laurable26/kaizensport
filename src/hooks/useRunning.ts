@@ -20,6 +20,7 @@ export function useRunningSessions() {
       const { data, error } = await supabase
         .from('running_sessions')
         .select('*, running_interval_blocks(*)')
+        .is('archived_at', null)
         .order('created_at', { ascending: false })
       if (error) throw error
       return data as RunningSessionWithBlocks[]
@@ -128,6 +129,20 @@ export function useDeleteRunningSession() {
   return useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from('running_sessions').delete().eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['running-sessions'] }),
+  })
+}
+
+export function useArchiveRunningSession() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('running_sessions')
+        .update({ archived_at: new Date().toISOString() })
+        .eq('id', id)
       if (error) throw error
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['running-sessions'] }),

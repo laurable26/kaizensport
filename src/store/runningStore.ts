@@ -32,6 +32,12 @@ interface RunningStore {
   blockSecondsRemaining: number
   phase: RunPhase
 
+  // Objectifs et milestones vocaux
+  targetDistanceM: number | null    // pour sessions 'distance'
+  targetDurationS: number | null    // pour sessions 'duration'
+  _halfAnnounced: boolean
+  _endAnnounced: boolean
+
   // Actions
   startRun: (params: {
     runLogId: string
@@ -39,6 +45,8 @@ interface RunningStore {
     sessionName: string
     sessionType: RunningSession['type']
     blocks: ExpandedIntervalBlock[]
+    targetDistanceM?: number | null
+    targetDurationS?: number | null
   }) => void
   addGpsPoint: (point: GpsPoint) => void
   _tick: () => void
@@ -67,12 +75,16 @@ const initialState = {
   currentBlockIndex: 0,
   blockSecondsRemaining: 0,
   phase: 'idle' as RunPhase,
+  targetDistanceM: null as number | null,
+  targetDurationS: null as number | null,
+  _halfAnnounced: false,
+  _endAnnounced: false,
 }
 
 export const useRunningStore = create<RunningStore>((set, get) => ({
   ...initialState,
 
-  startRun: ({ runLogId, runningSessionId, sessionName, sessionType, blocks }) => {
+  startRun: ({ runLogId, runningSessionId, sessionName, sessionType, blocks, targetDistanceM = null, targetDurationS = null }) => {
     const firstBlock = blocks[0]
     const phase: RunPhase = blocks.length > 0
       ? (firstBlock.label === 'Échauffement' ? 'warmup' : 'interval')
@@ -113,6 +125,10 @@ export const useRunningStore = create<RunningStore>((set, get) => ({
       avgPaceSecPerKm: null,
       bestPaceSecPerKm: null,
       _intervalId: intervalId,
+      targetDistanceM,
+      targetDurationS,
+      _halfAnnounced: false,
+      _endAnnounced: false,
     })
   },
 
@@ -166,11 +182,15 @@ export const useRunningStore = create<RunningStore>((set, get) => ({
   },
 
   _tick: () => {
-    const { _startTime, _blockStartTime, sessionType, blocks, currentBlockIndex } = get()
+    const {
+      _startTime, _blockStartTime, sessionType, blocks, currentBlockIndex,
+      targetDistanceM, targetDurationS, _halfAnnounced, _endAnnounced, distanceM,
+    } = get()
 
     // Chrono précis basé sur Date.now()
+    let newElapsed = 0
     if (_startTime !== null) {
-      const newElapsed = Math.floor((Date.now() - _startTime) / 1000)
+      newElapsed = Math.floor((Date.now() - _startTime) / 1000)
       set({ elapsedSeconds: newElapsed })
     }
 
@@ -183,6 +203,28 @@ export const useRunningStore = create<RunningStore>((set, get) => ({
         if (remaining <= 0) {
           get()._advanceBlock()
         }
+      }
+    }
+
+    // Milestones vocaux — course distance
+    if (sessionType === 'distance' && targetDistanceM && targetDistanceM > 0) {
+      if (!_halfAnnounced && distanceM >= targetDistanceM / 2) {
+        speak('Mi-parcours, tu gères !')
+        set({ _halfAnnounced: true })
+      } else if (!_endAnnounced && distanceM >= targetDistanceM * 0.9) {
+        speak('Plus que 10 % !')
+        set({ _endAnnounced: true })
+      }
+    }
+
+    // Milestones vocaux — course durée
+    if (sessionType === 'duration' && targetDurationS && targetDurationS > 0) {
+      if (!_halfAnnounced && newElapsed >= targetDurationS / 2) {
+        speak('Mi-temps, continue !')
+        set({ _halfAnnounced: true })
+      } else if (!_endAnnounced && newElapsed >= targetDurationS * 0.9) {
+        speak('Dernière ligne droite !')
+        set({ _endAnnounced: true })
       }
     }
   },

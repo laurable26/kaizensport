@@ -146,6 +146,22 @@ export default function SessionFormPage() {
   const [showPicker, setShowPicker] = useState(false)
   const [slots, setSlots] = useState<ExerciseSlot[]>([])
   const [initialized, setInitialized] = useState(false)
+  // Valeurs brutes (string) pour les inputs numériques — permet d'effacer complètement le champ
+  const [rawValues, setRawValues] = useState<Record<string, Record<string, string>>>({})
+
+  const getRaw = (uid: string, field: string, numVal: number | null | undefined): string => {
+    if (rawValues[uid]?.[field] !== undefined) return rawValues[uid][field]
+    return numVal == null ? '' : String(numVal)
+  }
+  const setRaw = (uid: string, field: string, val: string) =>
+    setRawValues((p) => ({ ...p, [uid]: { ...(p[uid] ?? {}), [field]: val } }))
+  const clearRaw = (uid: string, field: string) =>
+    setRawValues((p) => {
+      if (!p[uid]) return p
+      const n = { ...p, [uid]: { ...p[uid] } }
+      delete n[uid][field]
+      return n
+    })
 
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -258,7 +274,7 @@ export default function SessionFormPage() {
         ) : undefined}
       />
 
-      <form onSubmit={handleSubmit(onSubmit)} className="px-4 py-4 space-y-5 pb-32">
+      <form onSubmit={handleSubmit(onSubmit)} className="px-4 py-4 space-y-5">
         <div className="space-y-1">
           <label className="text-sm text-[var(--color-text-muted)]">Nom de la séance *</label>
           <input
@@ -351,21 +367,30 @@ export default function SessionFormPage() {
                   <div className="space-y-1">
                     <label className="text-xs text-[var(--color-text-muted)]">Séries</label>
                     <input
-                      type="number"
-                      value={slot.setsPlanned}
-                      min={1}
-                      onChange={(e) => updateSlot(slot.uid, { setsPlanned: Math.max(1, Number(e.target.value)) })}
+                      type="text"
+                      inputMode="numeric"
+                      value={getRaw(slot.uid, 'setsPlanned', slot.setsPlanned)}
+                      onChange={(e) => setRaw(slot.uid, 'setsPlanned', e.target.value.replace(/[^0-9]/g, ''))}
+                      onBlur={(e) => {
+                        const v = parseInt(e.target.value)
+                        updateSlot(slot.uid, { setsPlanned: isNaN(v) || v < 1 ? 1 : v })
+                        clearRaw(slot.uid, 'setsPlanned')
+                      }}
                       className="w-full bg-[var(--color-surface-2)] px-3 py-2 rounded-lg text-center outline-none text-[var(--color-text)]"
                     />
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs text-[var(--color-text-muted)]">Repos (sec)</label>
                     <input
-                      type="number"
-                      value={slot.restSeconds}
-                      min={0}
-                      step={5}
-                      onChange={(e) => updateSlot(slot.uid, { restSeconds: Math.max(0, Number(e.target.value)) })}
+                      type="text"
+                      inputMode="numeric"
+                      value={getRaw(slot.uid, 'restSeconds', slot.restSeconds)}
+                      onChange={(e) => setRaw(slot.uid, 'restSeconds', e.target.value.replace(/[^0-9]/g, ''))}
+                      onBlur={(e) => {
+                        const v = parseInt(e.target.value)
+                        updateSlot(slot.uid, { restSeconds: isNaN(v) || v < 0 ? 0 : v })
+                        clearRaw(slot.uid, 'restSeconds')
+                      }}
                       className="w-full bg-[var(--color-surface-2)] px-3 py-2 rounded-lg text-center outline-none text-[var(--color-text)]"
                     />
                   </div>
@@ -405,19 +430,28 @@ export default function SessionFormPage() {
                     </label>
                     {slot.repMode === 'reps' ? (
                       <input
-                        type="number"
-                        value={slot.targetReps}
-                        min={1}
-                        onChange={(e) => updateSlot(slot.uid, { targetReps: Math.max(1, Number(e.target.value)) })}
+                        type="text"
+                        inputMode="numeric"
+                        value={getRaw(slot.uid, 'targetReps', slot.targetReps)}
+                        onChange={(e) => setRaw(slot.uid, 'targetReps', e.target.value.replace(/[^0-9]/g, ''))}
+                        onBlur={(e) => {
+                          const v = parseInt(e.target.value)
+                          updateSlot(slot.uid, { targetReps: isNaN(v) || v < 1 ? 1 : v })
+                          clearRaw(slot.uid, 'targetReps')
+                        }}
                         className="w-full bg-[var(--color-surface-2)] px-3 py-2 rounded-lg text-center outline-none text-[var(--color-text)] border border-[var(--color-accent)]/40 focus:border-[var(--color-accent)]"
                       />
                     ) : (
                       <input
-                        type="number"
-                        value={slot.targetDuration}
-                        min={1}
-                        step={5}
-                        onChange={(e) => updateSlot(slot.uid, { targetDuration: Math.max(1, Number(e.target.value)) })}
+                        type="text"
+                        inputMode="numeric"
+                        value={getRaw(slot.uid, 'targetDuration', slot.targetDuration)}
+                        onChange={(e) => setRaw(slot.uid, 'targetDuration', e.target.value.replace(/[^0-9]/g, ''))}
+                        onBlur={(e) => {
+                          const v = parseInt(e.target.value)
+                          updateSlot(slot.uid, { targetDuration: isNaN(v) || v < 1 ? 1 : v })
+                          clearRaw(slot.uid, 'targetDuration')
+                        }}
                         className="w-full bg-[var(--color-surface-2)] px-3 py-2 rounded-lg text-center outline-none text-[var(--color-text)] border border-[var(--color-accent)]/40 focus:border-[var(--color-accent)]"
                       />
                     )}
@@ -425,14 +459,20 @@ export default function SessionFormPage() {
                   <div className="space-y-1">
                     <label className="text-xs text-[var(--color-text-muted)]">Poids (kg)</label>
                     <input
-                      type="number"
-                      value={slot.targetWeight ?? ''}
-                      min={0}
-                      step={0.5}
+                      type="text"
+                      inputMode="decimal"
+                      value={getRaw(slot.uid, 'targetWeight', slot.targetWeight)}
                       placeholder="—"
-                      onChange={(e) => {
-                        const val = e.target.value === '' ? null : Number(e.target.value)
-                        updateSlot(slot.uid, { targetWeight: val })
+                      onChange={(e) => setRaw(slot.uid, 'targetWeight', e.target.value.replace(/[^0-9.,]/g, ''))}
+                      onBlur={(e) => {
+                        const raw = e.target.value.replace(',', '.')
+                        if (raw === '' || raw === '.') {
+                          updateSlot(slot.uid, { targetWeight: null })
+                        } else {
+                          const v = parseFloat(raw)
+                          updateSlot(slot.uid, { targetWeight: isNaN(v) ? null : Math.max(0, v) })
+                        }
+                        clearRaw(slot.uid, 'targetWeight')
                       }}
                       className="w-full bg-[var(--color-surface-2)] px-3 py-2 rounded-lg text-center outline-none text-[var(--color-text)] placeholder-[var(--color-text-muted)]"
                     />
@@ -452,20 +492,18 @@ export default function SessionFormPage() {
             </button>
           )}
         </div>
-      </form>
 
-      <div className="footer-btn-container">
         <button
           type="button"
           onClick={handleSubmit(onSubmit)}
           disabled={isSubmitting}
-          className="w-full bg-[var(--color-accent)] text-white font-semibold py-4 rounded-xl active-scale disabled:opacity-50 neon transition-all"
+          className="w-full bg-[var(--color-accent)] text-white font-semibold py-4 rounded-xl active-scale disabled:opacity-50 neon transition-all mt-2"
         >
           {isSubmitting
             ? 'Enregistrement...'
             : isEditing ? 'Mettre à jour' : 'Créer la séance'}
         </button>
-      </div>
+      </form>
     </div>
   )
 }
