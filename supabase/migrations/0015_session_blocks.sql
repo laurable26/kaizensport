@@ -33,11 +33,13 @@ CREATE TABLE IF NOT EXISTS session_block_exercises (
 ALTER TABLE session_blocks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE session_block_exercises ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "session_blocks_owner" ON session_blocks;
 CREATE POLICY "session_blocks_owner" ON session_blocks
   USING (
     session_id IN (SELECT id FROM sessions WHERE user_id = auth.uid())
   );
 
+DROP POLICY IF EXISTS "session_block_exercises_owner" ON session_block_exercises;
 CREATE POLICY "session_block_exercises_owner" ON session_block_exercises
   USING (
     block_id IN (
