@@ -518,7 +518,7 @@ export default function RunningFormPage() {
         <button
           onClick={handleSubmit}
           disabled={saving || !name.trim()}
-          className="w-full bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white font-bold py-4 rounded-xl active-scale disabled:opacity-50 text-base"
+          className="w-full bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white font-bold py-4 rounded-xl active-scale disabled:opacity-50 neon transition-all text-base"
         >
           {saving ? 'Sauvegarde...' : isEdit ? 'Enregistrer les modifications' : 'Créer le plan'}
         </button>

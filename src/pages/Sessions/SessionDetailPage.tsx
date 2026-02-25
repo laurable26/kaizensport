@@ -151,7 +151,7 @@ export default function SessionDetailPage() {
           onClick={() => setShowShare(false)}
         >
           <div
-            className="bg-[var(--color-surface)] rounded-t-3xl p-5 space-y-4"
+            className="bg-[var(--color-surface)] rounded-t-3xl p-5 space-y-4 max-h-[85vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
             style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 1.25rem)' }}
           >

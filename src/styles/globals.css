@@ -115,13 +115,12 @@
   /* Fix : bouton de validation au-dessus de la barre de navigation */
   .footer-btn-container {
     position: fixed;
-    bottom: 0;
+    bottom: calc(var(--nav-height) + env(safe-area-inset-bottom, 0px));
     left: 0;
     right: 0;
-    padding: 0.75rem 1rem;
-    padding-bottom: calc(var(--nav-height) + env(safe-area-inset-bottom, 0px) + 0.75rem);
+    padding: 0.75rem 1rem 0.75rem;
     background: linear-gradient(to top, var(--color-bg) 60%, transparent);
-    z-index: 50;
+    z-index: 35;
   }
 
   .no-scrollbar::-webkit-scrollbar { display: none; }
