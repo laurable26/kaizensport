@@ -12,7 +12,7 @@ import { useState } from 'react'
 
 export default function SessionDetailPage() {
   const { id } = useParams<{ id: string }>()
-  const { data: session, isLoading } = useSession(id)
+  const { data: session, isLoading, isError } = useSession(id)
   const navigate = useNavigate()
   const startSessionLog = useStartSessionLog()
   const startSession = useSessionStore((s) => s.startSession)
@@ -82,7 +82,26 @@ export default function SessionDetailPage() {
     )
   }
 
-  if (!session) return null
+  if (!session) {
+    return (
+      <div>
+        <PageHeader title="Séance" back="/sessions" />
+        <div className="px-4 py-12 text-center space-y-3">
+          <p className="text-[var(--color-text-muted)] text-sm">
+            {isError
+              ? 'Impossible de charger la séance. La migration de la base de données est peut-être requise.'
+              : 'Séance introuvable.'}
+          </p>
+          <button
+            onClick={() => navigate('/sessions')}
+            className="text-[var(--color-accent)] text-sm font-semibold"
+          >
+            Retour aux séances
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   const blocks = (session.session_blocks ?? []).sort((a, b) => a.block_index - b.block_index)
   const totalExercises = blocks.reduce((acc, b) => acc + (b.session_block_exercises ?? []).length, 0)

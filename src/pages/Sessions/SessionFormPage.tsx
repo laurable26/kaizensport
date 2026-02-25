@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
@@ -14,7 +14,7 @@ import {
 import { useExercises } from '@/hooks/useExercises'
 import PageHeader from '@/components/layout/PageHeader'
 import ExercisePicker from '@/components/exercise/ExercisePicker'
-import { Plus, X, Trash2, Clock, ChevronDown, ChevronUp } from 'lucide-react'
+import { Plus, X, Trash2, Clock, ChevronDown, ChevronUp, GripVertical } from 'lucide-react'
 import toast from 'react-hot-toast'
 import type { Exercise } from '@/types/database'
 
@@ -200,6 +200,20 @@ export default function SessionFormPage() {
         ? { ...b, exercises: b.exercises.map((ex) => ex.uid === exuid ? { ...ex, ...patch } : ex) }
         : b
     ))
+
+  const reorderExercisesInBlock = (blockUid: string, fromIdx: number, toIdx: number) => {
+    if (fromIdx === toIdx) return
+    setBlocks((prev) => prev.map((b) => {
+      if (b.uid !== blockUid) return b
+      const exs = [...b.exercises]
+      const [moved] = exs.splice(fromIdx, 1)
+      exs.splice(toIdx, 0, moved)
+      return { ...b, exercises: exs }
+    }))
+  }
+
+  // Ref pour l'état du drag (HTML5 drag-and-drop)
+  const dragRef = useRef<{ blockUid: string; fromIdx: number } | null>(null)
 
   // ── Durée totale estimée ───────────────────────────────────────────────
 
@@ -426,10 +440,22 @@ export default function SessionFormPage() {
                   return (
                     <div
                       key={exUid}
+                      draggable={block.exercises.length > 1}
+                      onDragStart={() => { dragRef.current = { blockUid: block.uid, fromIdx: exIdx } }}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={() => {
+                        if (!dragRef.current || dragRef.current.blockUid !== block.uid) return
+                        reorderExercisesInBlock(block.uid, dragRef.current.fromIdx, exIdx)
+                        dragRef.current = null
+                      }}
+                      onDragEnd={() => { dragRef.current = null }}
                       className="bg-[var(--color-surface-2)] rounded-xl p-3 space-y-3"
                     >
-                      {/* Nom exercice + supprimer */}
+                      {/* Nom exercice + grip + supprimer */}
                       <div className="flex items-center gap-2">
+                        {block.exercises.length > 1 && (
+                          <GripVertical size={16} className="text-[var(--color-text-muted)] cursor-grab flex-shrink-0 touch-none" />
+                        )}
                         <div className="flex-1 min-w-0">
                           <p className="font-semibold text-sm truncate">{ex.exercise.name}</p>
                           {block.exercises.length > 1 && (

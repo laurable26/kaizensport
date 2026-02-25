@@ -121,7 +121,7 @@
     padding: 0.75rem 1rem;
     padding-bottom: calc(var(--nav-height) + env(safe-area-inset-bottom, 0px) + 0.75rem);
     background: linear-gradient(to top, var(--color-bg) 60%, transparent);
-    z-index: 30;
+    z-index: 50;
   }
 
   .no-scrollbar::-webkit-scrollbar { display: none; }
