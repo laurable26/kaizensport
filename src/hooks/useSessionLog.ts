@@ -69,9 +69,14 @@ export function useStartSessionLog() {
   })
 }
 
+export type LogSetPayload = SetLogInsert & {
+  block_id?: string | null
+  round_number?: number | null
+}
+
 export function useLogSet() {
   return useMutation({
-    mutationFn: async (set: SetLogInsert) => {
+    mutationFn: async (set: LogSetPayload) => {
       const { data, error } = await supabase
         .from('set_logs')
         .insert(set)

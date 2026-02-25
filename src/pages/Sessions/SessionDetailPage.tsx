@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom'
-import { useSession, estimateSessionDuration } from '@/hooks/useSessions'
+import { useSession, estimateSessionDuration, sessionToActiveBlocks } from '@/hooks/useSessions'
 import { useStartSessionLog } from '@/hooks/useSessionLog'
 import { useSessionStore } from '@/store/sessionStore'
 import { useRunningStore } from '@/store/runningStore'
@@ -7,7 +7,6 @@ import { useFriends } from '@/hooks/useFriends'
 import { useShareSession } from '@/hooks/useSharedSessions'
 import PageHeader from '@/components/layout/PageHeader'
 import { Play, Edit2, Dumbbell, Clock, Share2, X, Calendar, Check } from 'lucide-react'
-import type { ActiveExerciseState } from '@/types/app'
 import toast from 'react-hot-toast'
 import { useState } from 'react'
 
@@ -35,24 +34,13 @@ export default function SessionDetailPage() {
 
     try {
       const log = await startSessionLog.mutateAsync(id)
-
-      const exercises: ActiveExerciseState[] = (session.session_exercises ?? [])
-        .sort((a, b) => a.order_index - b.order_index)
-        .map((se) => ({
-          exerciseId: se.exercise_id,
-          exercise: se.exercise,
-          setsPlanned: se.sets_planned,
-          restSeconds: se.rest_seconds,
-          completedSets: [],
-          repMode: se.target_duration_seconds ? 'duration' : 'reps',
-          targetDurationSeconds: se.target_duration_seconds ?? undefined,
-        }))
+      const blocks = sessionToActiveBlocks(session)
 
       startSession({
         sessionLogId: log.id,
         sessionId: id,
         sessionName: session.name,
-        exercises,
+        blocks,
       })
 
       navigate('/sessions/active')
@@ -96,15 +84,20 @@ export default function SessionDetailPage() {
 
   if (!session) return null
 
-  const exercises = (session.session_exercises ?? []).sort((a, b) => a.order_index - b.order_index)
-  const durationMin = exercises.length > 0
-    ? estimateSessionDuration(exercises.map((se) => ({
-        sets_planned: se.sets_planned,
-        rest_seconds: se.rest_seconds,
-        target_reps: se.target_reps ?? null,
-        target_duration_seconds: se.target_duration_seconds ?? null,
+  const blocks = (session.session_blocks ?? []).sort((a, b) => a.block_index - b.block_index)
+  const totalExercises = blocks.reduce((acc, b) => acc + (b.session_block_exercises ?? []).length, 0)
+  const durationMin = blocks.length > 0
+    ? estimateSessionDuration(blocks.map((b) => ({
+        rounds: b.rounds,
+        rest_between_rounds_s: b.rest_between_rounds_s,
+        session_block_exercises: (b.session_block_exercises ?? []).map((ex) => ({
+          target_duration_s: ex.target_duration_s,
+          rest_after_s: ex.rest_after_s,
+        })),
       })))
     : null
+
+  const canStart = totalExercises > 0
 
   return (
     <div>
@@ -149,13 +142,10 @@ export default function SessionDetailPage() {
                 <X size={20} />
               </button>
             </div>
-
             <p className="text-xs text-[var(--color-text-muted)]">
               Ton ami recevra une copie de la séance et pourra la planifier dans son agenda.
               Les exercices manquants seront créés automatiquement dans son compte.
             </p>
-
-            {/* Date suggérée (optionnelle) */}
             <div className="space-y-2">
               <p className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wide">Date suggérée (optionnel)</p>
               <div className="flex gap-2">
@@ -176,8 +166,6 @@ export default function SessionDetailPage() {
                 />
               </div>
             </div>
-
-            {/* Liste des amis */}
             <div className="space-y-2">
               <p className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wide">Inviter un ami</p>
               {friends.map((f) => {
@@ -215,8 +203,8 @@ export default function SessionDetailPage() {
 
       <div className="px-4 py-4 space-y-4">
         {/* Résumé rapide */}
-        <div className="flex items-center gap-3">
-          {durationMin && (
+        <div className="flex items-center gap-3 flex-wrap">
+          {durationMin != null && durationMin > 0 && (
             <div className="flex items-center gap-1.5 bg-[var(--color-surface)] rounded-xl px-3 py-2">
               <Clock size={13} className="text-[var(--color-accent)]" />
               <span className="text-sm font-semibold">~{durationMin} min</span>
@@ -224,7 +212,9 @@ export default function SessionDetailPage() {
           )}
           <div className="flex items-center gap-1.5 bg-[var(--color-surface)] rounded-xl px-3 py-2">
             <Dumbbell size={13} className="text-[var(--color-text-muted)]" />
-            <span className="text-sm font-semibold">{exercises.length} exercice{exercises.length !== 1 ? 's' : ''}</span>
+            <span className="text-sm font-semibold">
+              {blocks.length} bloc{blocks.length !== 1 ? 's' : ''} · {totalExercises} exercice{totalExercises !== 1 ? 's' : ''}
+            </span>
           </div>
         </div>
 
@@ -234,39 +224,45 @@ export default function SessionDetailPage() {
           </p>
         )}
 
-        {/* Exercise list */}
-        <div className="space-y-2">
+        {/* Liste des blocs */}
+        <div className="space-y-3">
           <h2 className="text-xs font-bold text-[var(--color-text-muted)] uppercase tracking-wide">
-            Exercices
+            Programme
           </h2>
-          {exercises.map((se, i) => (
-            <div key={se.id} className="bg-[var(--color-surface)] rounded-2xl p-4 flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-[var(--color-surface-2)] flex items-center justify-center flex-shrink-0">
-                <span className="text-xs font-bold text-[var(--color-text-muted)]">{i + 1}</span>
+          {blocks.map((b, bi) => (
+            <div key={b.id} className="bg-[var(--color-surface)] rounded-2xl p-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="font-semibold text-sm">{b.label || `Bloc ${bi + 1}`}</p>
+                <span className="text-xs text-[var(--color-text-muted)] bg-[var(--color-surface-2)] px-2 py-0.5 rounded-full">
+                  {b.rounds} série{b.rounds !== 1 ? 's' : ''} · {b.rest_between_rounds_s}s repos
+                </span>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-medium truncate">{se.exercise?.name}</p>
-                <p className="text-xs text-[var(--color-text-muted)]">
-                  {se.sets_planned} séries · Repos {se.rest_seconds}s
-                  {se.target_duration_seconds
-                    ? ` · ${se.target_duration_seconds}s/tour`
-                    : se.target_reps
-                    ? ` · ${se.target_reps} reps`
-                    : ''}
-                  {se.target_weight ? ` · ${se.target_weight} kg` : ''}
-                </p>
-              </div>
-              <Dumbbell size={16} className="text-[var(--color-text-muted)] flex-shrink-0" />
+              {(b.session_block_exercises ?? []).map((ex, ei) => (
+                <div key={ex.id} className="flex items-center gap-2 py-0.5">
+                  <span className="w-5 h-5 rounded-md bg-[var(--color-surface-2)] flex items-center justify-center flex-shrink-0">
+                    <span className="text-[10px] font-bold text-[var(--color-text-muted)]">{ei + 1}</span>
+                  </span>
+                  <span className="text-sm flex-1 truncate">{ex.exercise?.name}</span>
+                  <span className="text-xs text-[var(--color-text-muted)]">
+                    {ex.target_duration_s
+                      ? `${ex.target_duration_s}s`
+                      : ex.target_reps
+                      ? `×${ex.target_reps}`
+                      : ''}
+                    {ex.target_weight ? ` · ${ex.target_weight} kg` : ''}
+                  </span>
+                </div>
+              ))}
             </div>
           ))}
         </div>
       </div>
 
-      {/* Start button */}
+      {/* Bouton démarrer */}
       <div className="footer-btn-container">
         <button
           onClick={handleStart}
-          disabled={startSessionLog.isPending || exercises.length === 0}
+          disabled={startSessionLog.isPending || !canStart}
           className="w-full bg-[var(--color-accent)] text-white font-bold py-4 rounded-xl active-scale disabled:opacity-50 flex items-center justify-center gap-2 text-base neon transition-all"
         >
           <Play size={20} className="ml-0.5" />

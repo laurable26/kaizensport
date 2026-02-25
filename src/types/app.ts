@@ -83,6 +83,29 @@ export type ActiveExerciseState = {
   targetDurationSeconds?: number
 }
 
+// ── Session bloc-centré ────────────────────────────────────────────────────
+
+export type ActiveBlockExercise = {
+  id: string              // session_block_exercises.id (UUID)
+  exerciseId: string
+  exercise: Exercise
+  repMode: 'reps' | 'duration'
+  targetReps: number | null
+  targetDurationS: number | null
+  targetWeight: number | null
+  restAfterS: number
+  /** Résultats indexés par round (1-based) */
+  logs: Record<number, { reps: number; weight: number; feeling: number | null }>
+}
+
+export type ActiveBlock = {
+  blockId: string         // session_blocks.id (UUID)
+  label: string | null
+  rounds: number
+  restBetweenRoundsS: number
+  exercises: ActiveBlockExercise[]
+}
+
 export type WeekDay = {
   date: Date
   label: string

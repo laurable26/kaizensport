@@ -1,60 +1,81 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useCreateSession, useUpdateSession, useSession, useDeleteSession } from '@/hooks/useSessions'
+import {
+  useCreateSession,
+  useUpdateSession,
+  useSession,
+  useDeleteSession,
+  estimateSessionDuration,
+  type BlockPayload,
+} from '@/hooks/useSessions'
 import { useExercises } from '@/hooks/useExercises'
 import PageHeader from '@/components/layout/PageHeader'
 import ExercisePicker from '@/components/exercise/ExercisePicker'
-import { Plus, X, GripVertical, Trash2, Clock } from 'lucide-react'
+import { Plus, X, Trash2, Clock, ChevronDown, ChevronUp } from 'lucide-react'
 import toast from 'react-hot-toast'
 import type { Exercise } from '@/types/database'
+
+// ── Schéma nom/notes ──────────────────────────────────────────────────────
 
 const schema = z.object({
   name: z.string().min(1, 'Nom requis'),
   notes: z.string().optional(),
 })
-
 type FormData = z.infer<typeof schema>
+
+// ── Types locaux ───────────────────────────────────────────────────────────
 
 type RepMode = 'reps' | 'duration'
 
-type ExerciseSlot = {
+type ExerciseForm = {
   uid: string
   exercise: Exercise
-  setsPlanned: number
-  restSeconds: number
   repMode: RepMode
   targetReps: number
-  targetDuration: number
+  targetDurationS: number
   targetWeight: number | null
+  restAfterS: number
+}
+
+type BlockForm = {
+  uid: string
+  label: string
+  rounds: number
+  restBetweenRoundsS: number
+  exercises: ExerciseForm[]
+  collapsed: boolean
 }
 
 let _counter = 0
-const newUid = () => `slot-${++_counter}-${Date.now()}`
+const newUid = () => `uid-${++_counter}-${Date.now()}`
 
-function makeSlot(exercise: Exercise): ExerciseSlot {
+function makeExercise(exercise: Exercise): ExerciseForm {
   return {
     uid: newUid(),
     exercise,
-    setsPlanned: 3,
-    restSeconds: 90,
     repMode: 'reps',
     targetReps: 10,
-    targetDuration: 30,
+    targetDurationS: 30,
     targetWeight: null,
+    restAfterS: 0,
   }
 }
 
-function estimateDuration(slots: ExerciseSlot[]): number {
-  if (slots.length === 0) return 0
-  const totalSeconds = slots.reduce((acc, s) => {
-    const setTime = s.repMode === 'duration' ? s.targetDuration : 45
-    return acc + s.setsPlanned * (setTime + s.restSeconds)
-  }, 0)
-  return Math.round(totalSeconds / 60)
+function makeBlock(exercises: Exercise[] = []): BlockForm {
+  return {
+    uid: newUid(),
+    label: '',
+    rounds: 3,
+    restBetweenRoundsS: 90,
+    exercises: exercises.map(makeExercise),
+    collapsed: false,
+  }
 }
+
+// ── Durée estimée (pour affichage) ────────────────────────────────────────
 
 function formatDuration(minutes: number): string {
   if (minutes < 60) return `~${minutes} min`
@@ -63,145 +84,137 @@ function formatDuration(minutes: number): string {
   return m > 0 ? `~${h}h${m.toString().padStart(2, '0')}` : `~${h}h`
 }
 
-// ─── Drag & Drop (touch + mouse) ─────────────────────────────────────────────
-function useDragSort(
-  slots: ExerciseSlot[],
-  setSlots: React.Dispatch<React.SetStateAction<ExerciseSlot[]>>
-) {
-  const draggingUid = useRef<string | null>(null)
-  const dragOverUid = useRef<string | null>(null)
-  const [draggingId, setDraggingId] = useState<string | null>(null)
-  const [overIdx, setOverIdx] = useState<number | null>(null)
+// ── rawValues helpers ─────────────────────────────────────────────────────
+// Permet d'effacer complètement un input numérique pendant la saisie
 
-  // ── Mouse events ──────────────────────────────────────────────────────────
-  const onDragStart = useCallback((uid: string) => {
-    draggingUid.current = uid
-    setDraggingId(uid)
-  }, [])
+type RawMap = Record<string, Record<string, string>>
 
-  const onDragEnter = useCallback((uid: string) => {
-    dragOverUid.current = uid
-    const idx = slots.findIndex((s) => s.uid === uid)
-    setOverIdx(idx)
-  }, [slots])
+function useRawValues() {
+  const [raw, setRaw] = useState<RawMap>({})
 
-  const onDragEnd = useCallback(() => {
-    if (draggingUid.current && dragOverUid.current && draggingUid.current !== dragOverUid.current) {
-      setSlots((prev) => {
-        const arr = [...prev]
-        const fromIdx = arr.findIndex((s) => s.uid === draggingUid.current)
-        const toIdx = arr.findIndex((s) => s.uid === dragOverUid.current)
-        if (fromIdx === -1 || toIdx === -1) return prev
-        const [item] = arr.splice(fromIdx, 1)
-        arr.splice(toIdx, 0, item)
-        return arr
-      })
-    }
-    draggingUid.current = null
-    dragOverUid.current = null
-    setDraggingId(null)
-    setOverIdx(null)
-  }, [setSlots])
+  const get = useCallback((uid: string, field: string, numVal: number | null | undefined): string => {
+    if (raw[uid]?.[field] !== undefined) return raw[uid][field]
+    return numVal == null ? '' : String(numVal)
+  }, [raw])
 
-  // ── Touch events ──────────────────────────────────────────────────────────
-  const touchStartY = useRef(0)
+  const put = useCallback((uid: string, field: string, val: string) =>
+    setRaw((p) => ({ ...p, [uid]: { ...(p[uid] ?? {}), [field]: val } })), [])
 
-  const onTouchStart = useCallback((uid: string, e: React.TouchEvent) => {
-    draggingUid.current = uid
-    setDraggingId(uid)
-    touchStartY.current = e.touches[0].clientY
-  }, [])
+  const clear = useCallback((uid: string, field: string) =>
+    setRaw((p) => {
+      if (!p[uid]) return p
+      const n = { ...p, [uid]: { ...p[uid] } }
+      delete n[uid][field]
+      return n
+    }), [])
 
-  const onTouchMove = useCallback((e: React.TouchEvent) => {
-    if (!draggingUid.current) return
-    const touch = e.touches[0]
-    const el = document.elementFromPoint(touch.clientX, touch.clientY)
-    const card = el?.closest('[data-slot-uid]')
-    if (card) {
-      const uid = card.getAttribute('data-slot-uid')
-      if (uid && uid !== draggingUid.current) {
-        dragOverUid.current = uid
-        const idx = slots.findIndex((s) => s.uid === uid)
-        setOverIdx(idx)
-      }
-    }
-  }, [slots])
-
-  const onTouchEnd = useCallback(() => {
-    onDragEnd()
-  }, [onDragEnd])
-
-  return { draggingId, overIdx, onDragStart, onDragEnter, onDragEnd, onTouchStart, onTouchMove, onTouchEnd }
+  return { get, put, clear }
 }
+
+// ── Composant principal ───────────────────────────────────────────────────
 
 export default function SessionFormPage() {
   const { id } = useParams<{ id?: string }>()
   const isEditing = !!id
   const navigate = useNavigate()
+
   const createSession = useCreateSession()
   const updateSession = useUpdateSession()
   const deleteSession = useDeleteSession()
   const { data: existing } = useSession(id)
   const { data: allExercises = [] } = useExercises()
-  const [showPicker, setShowPicker] = useState(false)
-  const [slots, setSlots] = useState<ExerciseSlot[]>([])
-  const [initialized, setInitialized] = useState(false)
-  // Valeurs brutes (string) pour les inputs numériques — permet d'effacer complètement le champ
-  const [rawValues, setRawValues] = useState<Record<string, Record<string, string>>>({})
 
-  const getRaw = (uid: string, field: string, numVal: number | null | undefined): string => {
-    if (rawValues[uid]?.[field] !== undefined) return rawValues[uid][field]
-    return numVal == null ? '' : String(numVal)
-  }
-  const setRaw = (uid: string, field: string, val: string) =>
-    setRawValues((p) => ({ ...p, [uid]: { ...(p[uid] ?? {}), [field]: val } }))
-  const clearRaw = (uid: string, field: string) =>
-    setRawValues((p) => {
-      if (!p[uid]) return p
-      const n = { ...p, [uid]: { ...p[uid] } }
-      delete n[uid][field]
-      return n
-    })
+  const [blocks, setBlocks] = useState<BlockForm[]>([])
+  const [initialized, setInitialized] = useState(false)
+
+  // UID du bloc ciblé pour l'ExercisePicker
+  const [pickerBlockUid, setPickerBlockUid] = useState<string | null>(null)
+
+  const rv = useRawValues()
 
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
   })
 
-  const drag = useDragSort(slots, setSlots)
-
+  // Charger les données existantes
   useEffect(() => {
     if (existing && !initialized) {
       reset({ name: existing.name, notes: existing.notes ?? '' })
-      const loaded: ExerciseSlot[] = (existing.session_exercises ?? [])
-        .sort((a, b) => a.order_index - b.order_index)
-        .map((se) => ({
+      const loaded: BlockForm[] = (existing.session_blocks ?? [])
+        .sort((a, b) => a.block_index - b.block_index)
+        .map((sb) => ({
           uid: newUid(),
-          exercise: se.exercise as Exercise,
-          setsPlanned: se.sets_planned,
-          restSeconds: se.rest_seconds,
-          repMode: se.target_duration_seconds != null ? 'duration' : 'reps',
-          targetReps: se.target_reps ?? 10,
-          targetDuration: se.target_duration_seconds ?? 30,
-          targetWeight: se.target_weight ?? null,
+          label: sb.label ?? '',
+          rounds: sb.rounds,
+          restBetweenRoundsS: sb.rest_between_rounds_s,
+          collapsed: false,
+          exercises: (sb.session_block_exercises ?? [])
+            .sort((a, b) => a.order_index - b.order_index)
+            .map((ex) => ({
+              uid: newUid(),
+              exercise: ex.exercise as Exercise,
+              repMode: ex.rep_mode,
+              targetReps: ex.target_reps ?? 10,
+              targetDurationS: ex.target_duration_s ?? 30,
+              targetWeight: ex.target_weight ?? null,
+              restAfterS: ex.rest_after_s,
+            })),
         }))
-      setSlots(loaded)
+      setBlocks(loaded)
       setInitialized(true)
     }
   }, [existing, initialized, reset])
 
-  const handleAddFromPicker = useCallback((selectedIds: string[]) => {
-    const newSlots: ExerciseSlot[] = selectedIds.map((eid) => {
+  // ── Helpers blocs ──────────────────────────────────────────────────────
+
+  const addBlock = () => setBlocks((p) => [...p, makeBlock()])
+  const removeBlock = (buid: string) => setBlocks((p) => p.filter((b) => b.uid !== buid))
+  const updateBlock = (buid: string, patch: Partial<BlockForm>) =>
+    setBlocks((p) => p.map((b) => b.uid === buid ? { ...b, ...patch } : b))
+  const toggleCollapse = (buid: string) =>
+    setBlocks((p) => p.map((b) => b.uid === buid ? { ...b, collapsed: !b.collapsed } : b))
+
+  // ── Helpers exercices ──────────────────────────────────────────────────
+
+  const addExercisesToBlock = useCallback((buid: string, exerciseIds: string[]) => {
+    const newExs = exerciseIds.map((eid) => {
       const exercise = allExercises.find((e) => e.id === eid)!
-      return makeSlot(exercise)
+      return makeExercise(exercise)
     })
-    setSlots((prev) => [...prev, ...newSlots])
-    setShowPicker(false)
+    setBlocks((p) => p.map((b) =>
+      b.uid === buid ? { ...b, exercises: [...b.exercises, ...newExs] } : b
+    ))
+    setPickerBlockUid(null)
   }, [allExercises])
 
-  const removeSlot = (uid: string) => setSlots((prev) => prev.filter((s) => s.uid !== uid))
+  const removeExercise = (buid: string, exuid: string) =>
+    setBlocks((p) => p.map((b) =>
+      b.uid === buid
+        ? { ...b, exercises: b.exercises.filter((ex) => ex.uid !== exuid) }
+        : b
+    ))
 
-  const updateSlot = (uid: string, patch: Partial<ExerciseSlot>) =>
-    setSlots((prev) => prev.map((s) => s.uid === uid ? { ...s, ...patch } : s))
+  const updateExercise = (buid: string, exuid: string, patch: Partial<ExerciseForm>) =>
+    setBlocks((p) => p.map((b) =>
+      b.uid === buid
+        ? { ...b, exercises: b.exercises.map((ex) => ex.uid === exuid ? { ...ex, ...patch } : ex) }
+        : b
+    ))
+
+  // ── Durée totale estimée ───────────────────────────────────────────────
+
+  const estimatedMin = estimateSessionDuration(
+    blocks.map((b) => ({
+      rounds: b.rounds,
+      rest_between_rounds_s: b.restBetweenRoundsS,
+      session_block_exercises: b.exercises.map((ex) => ({
+        target_duration_s: ex.repMode === 'duration' ? ex.targetDurationS : null,
+        rest_after_s: ex.restAfterS,
+      })),
+    }))
+  )
+
+  // ── Suppression séance ─────────────────────────────────────────────────
 
   const handleDelete = async () => {
     if (!id || !confirm('Supprimer cette séance ?')) return
@@ -214,53 +227,62 @@ export default function SessionFormPage() {
     }
   }
 
+  // ── Sauvegarde ────────────────────────────────────────────────────────
+
   const onSubmit = async (data: FormData) => {
     try {
-      const exerciseIds = slots.map((s) => ({
-        id: s.exercise.id,
-        setsPlanned: s.setsPlanned,
-        restSeconds: s.restSeconds,
-        targetReps: s.repMode === 'reps' ? s.targetReps : null,
-        targetDurationSeconds: s.repMode === 'duration' ? s.targetDuration : null,
-        targetWeight: s.targetWeight,
+      const blockPayloads: BlockPayload[] = blocks.map((b) => ({
+        label: b.label || null,
+        rounds: b.rounds,
+        restBetweenRoundsS: b.restBetweenRoundsS,
+        exercises: b.exercises.map((ex) => ({
+          exerciseId: ex.exercise.id,
+          repMode: ex.repMode,
+          targetReps: ex.repMode === 'reps' ? ex.targetReps : null,
+          targetDurationS: ex.repMode === 'duration' ? ex.targetDurationS : null,
+          targetWeight: ex.targetWeight,
+          restAfterS: ex.restAfterS,
+        })),
       }))
+
       if (isEditing && id) {
         await updateSession.mutateAsync({
           id,
           session: { name: data.name, notes: data.notes || null },
-          exerciseIds,
+          blocks: blockPayloads,
         })
         toast.success('Séance mise à jour')
         navigate(`/sessions/${id}`, { replace: true })
       } else {
         await createSession.mutateAsync({
           session: { name: data.name, notes: data.notes || null },
-          exerciseIds,
+          blocks: blockPayloads,
         })
         toast.success('Séance créée')
         navigate('/sessions')
       }
     } catch (err: any) {
-      console.error('Session save error:', err)
       const msg = err?.message ?? err?.error_description ?? JSON.stringify(err)
       toast.error(`Erreur : ${msg}`)
     }
   }
 
-  const estimatedMin = estimateDuration(slots)
+  // ── ExercisePicker ────────────────────────────────────────────────────
 
-  if (showPicker) {
+  if (pickerBlockUid) {
     return (
       <div className="min-h-dvh flex flex-col">
         <ExercisePicker
           selected={[]}
           onToggle={() => {}}
-          onClose={() => setShowPicker(false)}
-          onAdd={handleAddFromPicker}
+          onClose={() => setPickerBlockUid(null)}
+          onAdd={(ids) => addExercisesToBlock(pickerBlockUid, ids)}
         />
       </div>
     )
   }
+
+  // ── Rendu ─────────────────────────────────────────────────────────────
 
   return (
     <div>
@@ -275,6 +297,7 @@ export default function SessionFormPage() {
       />
 
       <form onSubmit={handleSubmit(onSubmit)} className="px-4 py-4 space-y-5">
+        {/* Nom */}
         <div className="space-y-1">
           <label className="text-sm text-[var(--color-text-muted)]">Nom de la séance *</label>
           <input
@@ -285,6 +308,7 @@ export default function SessionFormPage() {
           {errors.name && <p className="text-xs text-[var(--color-danger)]">{errors.name.message}</p>}
         </div>
 
+        {/* Notes */}
         <div className="space-y-1">
           <label className="text-sm text-[var(--color-text-muted)]">Notes</label>
           <textarea
@@ -295,204 +319,265 @@ export default function SessionFormPage() {
           />
         </div>
 
-        {/* Exercices */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-sm font-bold text-[var(--color-text-muted)] uppercase tracking-wide">
-                Exercices ({slots.length})
-              </h2>
-              {estimatedMin > 0 && (
-                <div className="flex items-center gap-1 mt-0.5">
-                  <Clock size={11} className="text-[var(--color-text-muted)]" />
-                  <span className="text-xs text-[var(--color-text-muted)]">{formatDuration(estimatedMin)}</span>
-                </div>
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowPicker(true)}
-              className="flex items-center gap-1 text-[var(--color-accent)] text-sm font-semibold"
-            >
-              <Plus size={16} />
-              Ajouter
-            </button>
-          </div>
-
-          {slots.map((slot, idx) => {
-            const isDragging = drag.draggingId === slot.uid
-            const isOver = drag.overIdx === idx && drag.draggingId !== slot.uid
-            const sameExCount = slots.filter((s, i) => s.exercise.id === slot.exercise.id && i <= idx).length
-            const hasMultiple = slots.filter((s) => s.exercise.id === slot.exercise.id).length > 1
-
-            return (
-              <div
-                key={slot.uid}
-                data-slot-uid={slot.uid}
-                className={`bg-[var(--color-surface)] rounded-2xl p-4 space-y-3 transition-all ${
-                  isDragging ? 'opacity-40 scale-[0.98]' : 'opacity-100'
-                } ${isOver ? 'ring-2 ring-[var(--color-accent)] ring-offset-2 ring-offset-[var(--color-bg)]' : ''}`}
-                draggable
-                onDragStart={() => drag.onDragStart(slot.uid)}
-                onDragEnter={() => drag.onDragEnter(slot.uid)}
-                onDragEnd={drag.onDragEnd}
-                onDragOver={(e) => e.preventDefault()}
-              >
-                {/* Header exercice */}
-                <div className="flex items-center gap-3">
-                  {/* Poignée drag – touch */}
-                  <div
-                    className="p-1 cursor-grab active:cursor-grabbing touch-none"
-                    onTouchStart={(e) => drag.onTouchStart(slot.uid, e)}
-                    onTouchMove={drag.onTouchMove}
-                    onTouchEnd={drag.onTouchEnd}
-                  >
-                    <GripVertical size={18} className="text-[var(--color-text-muted)]" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold truncate">{slot.exercise.name}</p>
-                    {hasMultiple && (
-                      <p className="text-[10px] text-[var(--color-accent)] font-medium">
-                        Passage {sameExCount}
-                      </p>
-                    )}
-                  </div>
-                  <button type="button" onClick={() => removeSlot(slot.uid)} className="p-1 text-[var(--color-text-muted)]">
-                    <X size={16} />
-                  </button>
-                </div>
-
-                {/* Séries + Repos */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-xs text-[var(--color-text-muted)]">Séries</label>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={getRaw(slot.uid, 'setsPlanned', slot.setsPlanned)}
-                      onChange={(e) => setRaw(slot.uid, 'setsPlanned', e.target.value.replace(/[^0-9]/g, ''))}
-                      onBlur={(e) => {
-                        const v = parseInt(e.target.value)
-                        updateSlot(slot.uid, { setsPlanned: isNaN(v) || v < 1 ? 1 : v })
-                        clearRaw(slot.uid, 'setsPlanned')
-                      }}
-                      className="w-full bg-[var(--color-surface-2)] px-3 py-2 rounded-lg text-center outline-none text-[var(--color-text)]"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-[var(--color-text-muted)]">Repos (sec)</label>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={getRaw(slot.uid, 'restSeconds', slot.restSeconds)}
-                      onChange={(e) => setRaw(slot.uid, 'restSeconds', e.target.value.replace(/[^0-9]/g, ''))}
-                      onBlur={(e) => {
-                        const v = parseInt(e.target.value)
-                        updateSlot(slot.uid, { restSeconds: isNaN(v) || v < 0 ? 0 : v })
-                        clearRaw(slot.uid, 'restSeconds')
-                      }}
-                      className="w-full bg-[var(--color-surface-2)] px-3 py-2 rounded-lg text-center outline-none text-[var(--color-text)]"
-                    />
-                  </div>
-                </div>
-
-                {/* Toggle reps / durée */}
-                <div className="flex gap-1 p-1 bg-[var(--color-surface-2)] rounded-lg">
-                  <button
-                    type="button"
-                    onClick={() => updateSlot(slot.uid, { repMode: 'reps' })}
-                    className={`flex-1 py-1.5 rounded-md text-xs font-semibold transition-colors ${
-                      slot.repMode === 'reps'
-                        ? 'bg-[var(--color-accent)] text-white'
-                        : 'text-[var(--color-text-muted)]'
-                    }`}
-                  >
-                    Répétitions
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => updateSlot(slot.uid, { repMode: 'duration' })}
-                    className={`flex-1 py-1.5 rounded-md text-xs font-semibold transition-colors ${
-                      slot.repMode === 'duration'
-                        ? 'bg-[var(--color-accent)] text-white'
-                        : 'text-[var(--color-text-muted)]'
-                    }`}
-                  >
-                    Durée (sec)
-                  </button>
-                </div>
-
-                {/* Objectif + Poids */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-xs text-[var(--color-text-muted)]">
-                      {slot.repMode === 'reps' ? 'Reps cibles *' : 'Durée cible (sec) *'}
-                    </label>
-                    {slot.repMode === 'reps' ? (
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        value={getRaw(slot.uid, 'targetReps', slot.targetReps)}
-                        onChange={(e) => setRaw(slot.uid, 'targetReps', e.target.value.replace(/[^0-9]/g, ''))}
-                        onBlur={(e) => {
-                          const v = parseInt(e.target.value)
-                          updateSlot(slot.uid, { targetReps: isNaN(v) || v < 1 ? 1 : v })
-                          clearRaw(slot.uid, 'targetReps')
-                        }}
-                        className="w-full bg-[var(--color-surface-2)] px-3 py-2 rounded-lg text-center outline-none text-[var(--color-text)] border border-[var(--color-accent)]/40 focus:border-[var(--color-accent)]"
-                      />
-                    ) : (
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        value={getRaw(slot.uid, 'targetDuration', slot.targetDuration)}
-                        onChange={(e) => setRaw(slot.uid, 'targetDuration', e.target.value.replace(/[^0-9]/g, ''))}
-                        onBlur={(e) => {
-                          const v = parseInt(e.target.value)
-                          updateSlot(slot.uid, { targetDuration: isNaN(v) || v < 1 ? 1 : v })
-                          clearRaw(slot.uid, 'targetDuration')
-                        }}
-                        className="w-full bg-[var(--color-surface-2)] px-3 py-2 rounded-lg text-center outline-none text-[var(--color-text)] border border-[var(--color-accent)]/40 focus:border-[var(--color-accent)]"
-                      />
-                    )}
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-[var(--color-text-muted)]">Poids (kg)</label>
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      value={getRaw(slot.uid, 'targetWeight', slot.targetWeight)}
-                      placeholder="—"
-                      onChange={(e) => setRaw(slot.uid, 'targetWeight', e.target.value.replace(/[^0-9.,]/g, ''))}
-                      onBlur={(e) => {
-                        const raw = e.target.value.replace(',', '.')
-                        if (raw === '' || raw === '.') {
-                          updateSlot(slot.uid, { targetWeight: null })
-                        } else {
-                          const v = parseFloat(raw)
-                          updateSlot(slot.uid, { targetWeight: isNaN(v) ? null : Math.max(0, v) })
-                        }
-                        clearRaw(slot.uid, 'targetWeight')
-                      }}
-                      className="w-full bg-[var(--color-surface-2)] px-3 py-2 rounded-lg text-center outline-none text-[var(--color-text)] placeholder-[var(--color-text-muted)]"
-                    />
-                  </div>
-                </div>
+        {/* Header blocs */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-sm font-bold text-[var(--color-text-muted)] uppercase tracking-wide">
+              Blocs ({blocks.length})
+            </h2>
+            {estimatedMin > 0 && (
+              <div className="flex items-center gap-1 mt-0.5">
+                <Clock size={11} className="text-[var(--color-text-muted)]" />
+                <span className="text-xs text-[var(--color-text-muted)]">{formatDuration(estimatedMin)}</span>
               </div>
-            )
-          })}
-
-          {slots.length === 0 && (
-            <button
-              type="button"
-              onClick={() => setShowPicker(true)}
-              className="w-full border-2 border-dashed border-[var(--color-border)] rounded-2xl p-6 text-[var(--color-text-muted)] text-sm text-center active-scale"
-            >
-              Appuyer pour ajouter des exercices
-            </button>
-          )}
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={addBlock}
+            className="flex items-center gap-1 text-[var(--color-accent)] text-sm font-semibold"
+          >
+            <Plus size={16} />
+            Ajouter un bloc
+          </button>
         </div>
 
+        {/* Liste des blocs */}
+        {blocks.map((block, blockIdx) => (
+          <div
+            key={block.uid}
+            className="bg-[var(--color-surface)] rounded-2xl overflow-hidden"
+          >
+            {/* En-tête du bloc */}
+            <div className="px-4 pt-4 pb-3 space-y-3">
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={block.label}
+                  onChange={(e) => updateBlock(block.uid, { label: e.target.value })}
+                  placeholder={`Bloc ${blockIdx + 1}`}
+                  className="flex-1 bg-[var(--color-surface-2)] px-3 py-2 rounded-xl text-sm font-semibold text-[var(--color-text)] outline-none border border-transparent focus:border-[var(--color-accent)] transition-all"
+                />
+                <button
+                  type="button"
+                  onClick={() => toggleCollapse(block.uid)}
+                  className="p-2 text-[var(--color-text-muted)] active-scale"
+                >
+                  {block.collapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => removeBlock(block.uid)}
+                  className="p-2 text-[var(--color-text-muted)] active-scale"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              {/* Séries + Repos entre séries */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs text-[var(--color-text-muted)]">Séries</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={rv.get(block.uid, 'rounds', block.rounds)}
+                    onChange={(e) => rv.put(block.uid, 'rounds', e.target.value.replace(/[^0-9]/g, ''))}
+                    onBlur={(e) => {
+                      const v = parseInt(e.target.value)
+                      updateBlock(block.uid, { rounds: isNaN(v) || v < 1 ? 1 : v })
+                      rv.clear(block.uid, 'rounds')
+                    }}
+                    className="w-full bg-[var(--color-surface-2)] px-3 py-2 rounded-lg text-center outline-none text-[var(--color-text)]"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-[var(--color-text-muted)]">Repos entre séries (sec)</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={rv.get(block.uid, 'rest', block.restBetweenRoundsS)}
+                    onChange={(e) => rv.put(block.uid, 'rest', e.target.value.replace(/[^0-9]/g, ''))}
+                    onBlur={(e) => {
+                      const v = parseInt(e.target.value)
+                      updateBlock(block.uid, { restBetweenRoundsS: isNaN(v) || v < 0 ? 0 : v })
+                      rv.clear(block.uid, 'rest')
+                    }}
+                    className="w-full bg-[var(--color-surface-2)] px-3 py-2 rounded-lg text-center outline-none text-[var(--color-text)]"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Exercices du bloc */}
+            {!block.collapsed && (
+              <div className="px-4 pb-4 space-y-3">
+                <div className="h-px bg-[var(--color-border)]" />
+
+                {block.exercises.length === 0 && (
+                  <p className="text-xs text-center text-[var(--color-text-muted)] py-2">
+                    Aucun exercice dans ce bloc
+                  </p>
+                )}
+
+                {block.exercises.map((ex, exIdx) => {
+                  const exUid = ex.uid
+                  const isLastInBlock = exIdx === block.exercises.length - 1
+                  return (
+                    <div
+                      key={exUid}
+                      className="bg-[var(--color-surface-2)] rounded-xl p-3 space-y-3"
+                    >
+                      {/* Nom exercice + supprimer */}
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-sm truncate">{ex.exercise.name}</p>
+                          {block.exercises.length > 1 && (
+                            <p className="text-[10px] text-[var(--color-accent)]">
+                              {exIdx + 1}/{block.exercises.length}
+                            </p>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeExercise(block.uid, exUid)}
+                          className="p-1 text-[var(--color-text-muted)] active-scale"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+
+                      {/* Toggle reps / durée */}
+                      <div className="flex gap-1 p-1 bg-[var(--color-surface)] rounded-lg">
+                        <button
+                          type="button"
+                          onClick={() => updateExercise(block.uid, exUid, { repMode: 'reps' })}
+                          className={`flex-1 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                            ex.repMode === 'reps'
+                              ? 'bg-[var(--color-accent)] text-white'
+                              : 'text-[var(--color-text-muted)]'
+                          }`}
+                        >
+                          Répétitions
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => updateExercise(block.uid, exUid, { repMode: 'duration' })}
+                          className={`flex-1 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                            ex.repMode === 'duration'
+                              ? 'bg-[var(--color-accent)] text-white'
+                              : 'text-[var(--color-text-muted)]'
+                          }`}
+                        >
+                          Durée (sec)
+                        </button>
+                      </div>
+
+                      {/* Objectif + Poids */}
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <label className="text-xs text-[var(--color-text-muted)]">
+                            {ex.repMode === 'reps' ? 'Reps cibles' : 'Durée (sec)'}
+                          </label>
+                          {ex.repMode === 'reps' ? (
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={rv.get(exUid, 'targetReps', ex.targetReps)}
+                              onChange={(e) => rv.put(exUid, 'targetReps', e.target.value.replace(/[^0-9]/g, ''))}
+                              onBlur={(e) => {
+                                const v = parseInt(e.target.value)
+                                updateExercise(block.uid, exUid, { targetReps: isNaN(v) || v < 1 ? 1 : v })
+                                rv.clear(exUid, 'targetReps')
+                              }}
+                              className="w-full bg-[var(--color-surface)] px-2 py-1.5 rounded-lg text-center text-sm outline-none border border-[var(--color-accent)]/30 focus:border-[var(--color-accent)]"
+                            />
+                          ) : (
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={rv.get(exUid, 'targetDurationS', ex.targetDurationS)}
+                              onChange={(e) => rv.put(exUid, 'targetDurationS', e.target.value.replace(/[^0-9]/g, ''))}
+                              onBlur={(e) => {
+                                const v = parseInt(e.target.value)
+                                updateExercise(block.uid, exUid, { targetDurationS: isNaN(v) || v < 1 ? 1 : v })
+                                rv.clear(exUid, 'targetDurationS')
+                              }}
+                              className="w-full bg-[var(--color-surface)] px-2 py-1.5 rounded-lg text-center text-sm outline-none border border-[var(--color-accent)]/30 focus:border-[var(--color-accent)]"
+                            />
+                          )}
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-xs text-[var(--color-text-muted)]">Poids (kg)</label>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            value={rv.get(exUid, 'targetWeight', ex.targetWeight)}
+                            placeholder="—"
+                            onChange={(e) => rv.put(exUid, 'targetWeight', e.target.value.replace(/[^0-9.,]/g, ''))}
+                            onBlur={(e) => {
+                              const raw = e.target.value.replace(',', '.')
+                              if (raw === '' || raw === '.') {
+                                updateExercise(block.uid, exUid, { targetWeight: null })
+                              } else {
+                                const v = parseFloat(raw)
+                                updateExercise(block.uid, exUid, { targetWeight: isNaN(v) ? null : Math.max(0, v) })
+                              }
+                              rv.clear(exUid, 'targetWeight')
+                            }}
+                            className="w-full bg-[var(--color-surface)] px-2 py-1.5 rounded-lg text-center text-sm outline-none placeholder-[var(--color-text-muted)]"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Repos après cet exercice (intra-round) — sauf dernier */}
+                      {!isLastInBlock && (
+                        <div className="space-y-1">
+                          <label className="text-xs text-[var(--color-text-muted)]">Repos après l'exercice (sec)</label>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={rv.get(exUid, 'restAfterS', ex.restAfterS)}
+                            onChange={(e) => rv.put(exUid, 'restAfterS', e.target.value.replace(/[^0-9]/g, ''))}
+                            onBlur={(e) => {
+                              const v = parseInt(e.target.value)
+                              updateExercise(block.uid, exUid, { restAfterS: isNaN(v) || v < 0 ? 0 : v })
+                              rv.clear(exUid, 'restAfterS')
+                            }}
+                            className="w-full bg-[var(--color-surface)] px-3 py-2 rounded-lg text-center outline-none text-[var(--color-text)]"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+
+                {/* Bouton ajouter exercice au bloc */}
+                <button
+                  type="button"
+                  onClick={() => setPickerBlockUid(block.uid)}
+                  className="w-full flex items-center justify-center gap-1.5 border border-dashed border-[var(--color-border)] rounded-xl py-2.5 text-sm text-[var(--color-text-muted)] active-scale"
+                >
+                  <Plus size={14} />
+                  Ajouter un exercice
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
+
+        {/* Empty state */}
+        {blocks.length === 0 && (
+          <button
+            type="button"
+            onClick={addBlock}
+            className="w-full border-2 border-dashed border-[var(--color-border)] rounded-2xl p-6 text-[var(--color-text-muted)] text-sm text-center active-scale"
+          >
+            Appuyer pour ajouter un bloc d'exercices
+          </button>
+        )}
+
+        {/* Bouton save */}
         <button
           type="button"
           onClick={handleSubmit(onSubmit)}

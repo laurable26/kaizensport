@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useSessions, estimateSessionDuration, useArchiveSession } from '@/hooks/useSessions'
+import { useSessions, countBlockExercises, estimateSessionDuration, useArchiveSession } from '@/hooks/useSessions'
 import { useRunningSessions, useArchiveRunningSession } from '@/hooks/useRunning'
 import { useNavigate } from 'react-router-dom'
 import PageHeader from '@/components/layout/PageHeader'
@@ -107,8 +107,10 @@ export default function SessionsPage() {
                   Musculation
                 </p>
                 {sessions.map((session) => {
-                  const exCount = session.session_exercises?.length ?? 0
-                  const durationMin = exCount > 0 ? estimateSessionDuration(session.session_exercises) : null
+                  const exCount = countBlockExercises(session.session_blocks ?? [])
+                  const durationMin = (session.session_blocks?.length ?? 0) > 0
+                    ? estimateSessionDuration(session.session_blocks ?? [])
+                    : null
                   return (
                     <div
                       key={session.id}
