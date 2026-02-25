@@ -6,7 +6,7 @@ import {
   useUpdateRunningSession,
 } from '@/hooks/useRunning'
 import PageHeader from '@/components/layout/PageHeader'
-import { Plus, Trash2, GripVertical, ChevronDown, ChevronUp } from 'lucide-react'
+import { Plus, Trash2, ChevronUp, ChevronDown } from 'lucide-react'
 import toast from 'react-hot-toast'
 import type { RunningIntervalBlock } from '@/types/database'
 
@@ -38,28 +38,72 @@ function formatPace(secPerKm: number): string {
   return `${m}:${String(s).padStart(2, '0')}/km`
 }
 
+function fmtDuration(s: number): string {
+  if (s < 60) return `${s}s`
+  const m = Math.floor(s / 60)
+  const sec = s % 60
+  return `${m}:${String(sec).padStart(2, '0')}`
+}
+
 function BlockEditor({
   block,
   index,
+  total,
   onChange,
   onRemove,
+  onMove,
   canRemove,
 }: {
   block: BlockDraft
   index: number
+  total: number
   onChange: (b: BlockDraft) => void
   onRemove: () => void
+  onMove: (dir: 'up' | 'down') => void
   canRemove: boolean
 }) {
   return (
-    <div className={`bg-[var(--color-surface-2)] rounded-xl p-4 space-y-3 border-l-4 ${
-      block.phase === 'work' ? 'border-[var(--color-accent)]' : 'border-[var(--color-accent)]'
+    <div className={`bg-[var(--color-surface-2)] rounded-xl p-3 space-y-2 border-l-4 ${
+      block.phase === 'work' ? 'border-[var(--color-accent)]' : 'border-slate-500'
     }`}>
+      {/* Header : Bloc N + phase toggle + actions */}
       <div className="flex items-center gap-2">
-        <GripVertical size={16} className="text-[var(--color-text-muted)]" />
-        <span className="text-xs font-bold uppercase text-[var(--color-text-muted)] flex-1">
+        <span className="text-xs font-bold uppercase text-[var(--color-text-muted)]">
           Bloc {index + 1}
         </span>
+        {/* Phase toggle */}
+        <div className="flex rounded-lg overflow-hidden border border-[var(--color-border)] flex-1">
+          {(['work', 'rest'] as const).map((p) => (
+            <button
+              key={p}
+              onClick={() => onChange({ ...block, phase: p })}
+              className={`flex-1 py-1 text-xs font-semibold transition-colors ${
+                block.phase === p
+                  ? p === 'work'
+                    ? 'bg-[var(--color-accent)] text-white'
+                    : 'bg-slate-600 text-white'
+                  : 'text-[var(--color-text-muted)]'
+              }`}
+            >
+              {p === 'work' ? '⚡ Travail' : '😮‍💨 Repos'}
+            </button>
+          ))}
+        </div>
+        {/* Move up/down */}
+        <button
+          onClick={() => onMove('up')}
+          disabled={index === 0}
+          className="p-1 text-[var(--color-text-muted)] disabled:opacity-20 active-scale"
+        >
+          <ChevronUp size={14} />
+        </button>
+        <button
+          onClick={() => onMove('down')}
+          disabled={index === total - 1}
+          className="p-1 text-[var(--color-text-muted)] disabled:opacity-20 active-scale"
+        >
+          <ChevronDown size={14} />
+        </button>
         {canRemove && (
           <button onClick={onRemove} className="text-[var(--color-danger)] active-scale p-1">
             <Trash2 size={14} />
@@ -67,60 +111,34 @@ function BlockEditor({
         )}
       </div>
 
-      {/* Phase toggle */}
-      <div className="flex rounded-lg overflow-hidden border border-[var(--color-border)]">
-        {(['work', 'rest'] as const).map((p) => (
-          <button
-            key={p}
-            onClick={() => onChange({ ...block, phase: p })}
-            className={`flex-1 py-1.5 text-xs font-semibold transition-colors ${
-              block.phase === p
-                ? p === 'work'
-                  ? 'bg-[var(--color-accent)] text-white'
-                  : 'bg-[var(--color-accent)] text-white'
-                : 'text-[var(--color-text-muted)]'
-            }`}
-          >
-            {p === 'work' ? '⚡ Travail' : '😮‍💨 Repos'}
-          </button>
-        ))}
-      </div>
-
       {/* Label */}
-      <div>
-        <label className="text-xs text-[var(--color-text-muted)]">Nom du bloc</label>
-        <input
-          type="text"
-          value={block.label}
-          onChange={(e) => onChange({ ...block, label: e.target.value })}
-          placeholder={block.phase === 'work' ? 'Ex: Sprint' : 'Ex: Récupération'}
-          className="w-full mt-1 bg-[var(--color-surface)] px-3 py-2 rounded-lg text-sm text-[var(--color-text)] outline-none border border-[var(--color-border)] focus:border-[var(--color-accent)]"
-        />
-      </div>
+      <input
+        type="text"
+        value={block.label}
+        onChange={(e) => onChange({ ...block, label: e.target.value })}
+        placeholder={block.phase === 'work' ? 'Ex: Sprint' : 'Ex: Récupération'}
+        className="w-full bg-[var(--color-surface)] px-3 py-1.5 rounded-lg text-sm text-[var(--color-text)] outline-none border border-[var(--color-border)] focus:border-[var(--color-accent)]"
+      />
 
-      {/* Duration + reps */}
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="text-xs text-[var(--color-text-muted)]">Durée (sec)</label>
-          <input
-            type="number"
-            value={block.duration_s}
-            min={5}
-            step={5}
-            onChange={(e) => onChange({ ...block, duration_s: Math.max(5, Number(e.target.value)) })}
-            className="w-full mt-1 bg-[var(--color-surface)] px-3 py-2 rounded-lg text-sm text-[var(--color-text)] outline-none border border-[var(--color-border)] focus:border-[var(--color-accent)]"
-          />
-        </div>
-        <div>
-          <label className="text-xs text-[var(--color-text-muted)]">Répétitions</label>
-          <input
-            type="number"
-            value={block.repetitions}
-            min={1}
-            step={1}
-            onChange={(e) => onChange({ ...block, repetitions: Math.max(1, Number(e.target.value)) })}
-            className="w-full mt-1 bg-[var(--color-surface)] px-3 py-2 rounded-lg text-sm text-[var(--color-text)] outline-none border border-[var(--color-border)] focus:border-[var(--color-accent)]"
-          />
+      {/* Durée — stepper +/− */}
+      <div>
+        <label className="text-xs text-[var(--color-text-muted)]">Durée</label>
+        <div className="flex items-center gap-2 mt-1">
+          <button
+            onClick={() => onChange({ ...block, duration_s: Math.max(5, block.duration_s - 5) })}
+            className="w-10 h-10 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] text-lg font-bold text-[var(--color-text)] active-scale flex items-center justify-center flex-shrink-0"
+          >
+            −
+          </button>
+          <span className="flex-1 text-center font-bold text-base text-[var(--color-text)]">
+            {fmtDuration(block.duration_s)}
+          </span>
+          <button
+            onClick={() => onChange({ ...block, duration_s: block.duration_s + 5 })}
+            className="w-10 h-10 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] text-lg font-bold text-[var(--color-text)] active-scale flex items-center justify-center flex-shrink-0"
+          >
+            +
+          </button>
         </div>
       </div>
 
@@ -140,7 +158,7 @@ function BlockEditor({
                 ...block,
                 target_pace_min_km: e.target.value === '' ? '' : Number(e.target.value),
               })}
-              className="flex-1 bg-[var(--color-surface)] px-3 py-2 rounded-lg text-sm text-[var(--color-text)] outline-none border border-[var(--color-border)] focus:border-[var(--color-accent)]"
+              className="flex-1 bg-[var(--color-surface)] px-3 py-1.5 rounded-lg text-sm text-[var(--color-text)] outline-none border border-[var(--color-border)] focus:border-[var(--color-accent)]"
             />
             {block.target_pace_min_km !== '' && (
               <span className="text-xs text-[var(--color-text-muted)] whitespace-nowrap">
@@ -221,7 +239,7 @@ export default function RunningFormPage() {
         phase: b.phase,
         duration_s: b.duration_s,
         target_pace_min_km: b.target_pace_min_km !== '' ? Number(b.target_pace_min_km) : null,
-        repetitions: b.repetitions,
+        repetitions: 1,
       })) : []
 
       if (isEdit && id) {
@@ -255,6 +273,14 @@ export default function RunningFormPage() {
     setBlocks(blocks.filter((_, i) => i !== index))
   }
 
+  const moveBlock = (index: number, dir: 'up' | 'down') => {
+    const newBlocks = [...blocks]
+    const swapIdx = dir === 'up' ? index - 1 : index + 1
+    if (swapIdx < 0 || swapIdx >= newBlocks.length) return
+    ;[newBlocks[index], newBlocks[swapIdx]] = [newBlocks[swapIdx], newBlocks[index]]
+    setBlocks(newBlocks)
+  }
+
   const TYPE_OPTIONS: { value: RunType; label: string; desc: string }[] = [
     { value: 'free', label: 'Libre', desc: 'Sans objectif' },
     { value: 'distance', label: '📍 Distance', desc: 'Objectif km' },
@@ -266,7 +292,7 @@ export default function RunningFormPage() {
     <div>
       <PageHeader title={isEdit ? 'Modifier le plan' : 'Nouveau plan'} />
 
-      <div className="px-4 py-4 space-y-5 pb-32">
+      <div className="px-4 py-4 space-y-5 pb-52">
         {/* Name */}
         <div className="bg-[var(--color-surface)] rounded-2xl p-4 space-y-3">
           <label className="text-xs font-bold uppercase text-[var(--color-text-muted)] tracking-wide">
@@ -403,7 +429,7 @@ export default function RunningFormPage() {
             </div>
 
             {/* Blocks */}
-            <div className="space-y-3">
+            <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-bold uppercase text-[var(--color-text-muted)] tracking-wide">
                   Blocs d&apos;intervalles ({blocks.length})
@@ -421,8 +447,10 @@ export default function RunningFormPage() {
                   key={block.id}
                   block={block}
                   index={i}
+                  total={blocks.length}
                   onChange={(updated) => updateBlock(i, updated)}
                   onRemove={() => removeBlock(i)}
+                  onMove={(dir) => moveBlock(i, dir)}
                   canRemove={blocks.length > 1}
                 />
               ))}
@@ -434,7 +462,7 @@ export default function RunningFormPage() {
                   <p>• Échauffement {warmupMin} min</p>
                 )}
                 {blocks.map((b, i) => (
-                  <p key={i}>• {b.repetitions}× {b.label || (b.phase === 'work' ? 'Travail' : 'Repos')} — {b.duration_s}s{b.target_pace_min_km !== '' ? ` @ ${formatPace(Number(b.target_pace_min_km))}` : ''}</p>
+                  <p key={i}>• {b.label || (b.phase === 'work' ? 'Travail' : 'Repos')} — {fmtDuration(b.duration_s)}{b.target_pace_min_km !== '' ? ` @ ${formatPace(Number(b.target_pace_min_km))}` : ''}</p>
                 ))}
                 {cooldownMin !== '' && Number(cooldownMin) > 0 && (
                   <p>• Retour au calme {cooldownMin} min</p>
@@ -442,7 +470,7 @@ export default function RunningFormPage() {
                 <p className="pt-1 border-t border-[var(--color-border)] font-semibold text-[var(--color-text)]">
                   Total : ~{(
                     (warmupMin !== '' ? Number(warmupMin) * 60 : 0) +
-                    blocks.reduce((acc, b) => acc + b.duration_s * b.repetitions, 0) +
+                    blocks.reduce((acc, b) => acc + b.duration_s, 0) +
                     (cooldownMin !== '' ? Number(cooldownMin) * 60 : 0)
                   ) / 60 | 0} min
                 </p>
@@ -466,10 +494,10 @@ export default function RunningFormPage() {
         </div>
       </div>
 
-      {/* Sticky save button */}
+      {/* Sticky save button — au-dessus de la BottomNav */}
       <div
-        className="fixed bottom-0 left-0 right-0 px-4 pb-4 pt-3 bg-[var(--color-bg)]/80 backdrop-blur-sm border-t border-[var(--color-border)]"
-        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 1rem)' }}
+        className="fixed left-0 right-0 px-4 pt-3 pb-3 bg-[var(--color-bg)]/90 backdrop-blur-sm border-t border-[var(--color-border)] z-50"
+        style={{ bottom: 'calc(64px + env(safe-area-inset-bottom, 0px))' }}
       >
         <button
           onClick={handleSubmit}

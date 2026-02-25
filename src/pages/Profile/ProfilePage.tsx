@@ -1,23 +1,19 @@
 import { useAuth } from '@/hooks/useAuth'
 import { useNotifications } from '@/hooks/useNotifications'
 import { useThemeStore } from '@/store/themeStore'
-import { useAppModeStore } from '@/store/appModeStore'
 import PageHeader from '@/components/layout/PageHeader'
-import { Bell, BellOff, LogOut, User, ChevronRight, Sun, Moon, Pencil, Check, X, Shield, Camera, Mail, Dumbbell, Footprints } from 'lucide-react'
+import { Bell, BellOff, LogOut, User, ChevronRight, Sun, Moon, Pencil, Check, X, Shield, Camera, Mail } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { supabase } from '@/lib/supabase'
-import type { AppMode } from '@/types/app'
 
 export default function ProfilePage() {
   const { user, signOut } = useAuth()
   const { isSupported, registerPush, getPermissionStatus } = useNotifications()
   const { theme, toggle: toggleTheme } = useThemeStore()
-  const { mode, setMode, syncToSupabase } = useAppModeStore()
   const navigate = useNavigate()
   const [registering, setRegistering] = useState(false)
-  const [switchingMode, setSwitchingMode] = useState(false)
 
   // Nom
   const [editingName, setEditingName] = useState(false)
@@ -139,17 +135,6 @@ export default function ProfilePage() {
       setUploadingPhoto(false)
       if (fileInputRef.current) fileInputRef.current.value = ''
     }
-  }
-
-  const handleModeSwitch = async (newMode: AppMode) => {
-    if (newMode === mode) return
-    setSwitchingMode(true)
-    setMode(newMode)
-    if (user) {
-      syncToSupabase(user.id, newMode).catch(() => {})
-    }
-    toast.success(newMode === 'running' ? 'Mode Course activé' : '💪 Mode Musculation activé')
-    setSwitchingMode(false)
   }
 
   return (
@@ -359,49 +344,6 @@ export default function ProfilePage() {
               <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${theme === 'dark' ? 'translate-x-7' : 'translate-x-1'}`} />
             </div>
           </button>
-        </div>
-
-        {/* Mode sport */}
-        <div className="bg-[var(--color-surface)] rounded-2xl overflow-hidden">
-          <div className="px-4 py-3 border-b border-[var(--color-border)]">
-            <p className="text-xs font-bold text-[var(--color-text-muted)] uppercase tracking-wide">Mode sport</p>
-          </div>
-          <div className="p-4 grid grid-cols-2 gap-3">
-            <button
-              onClick={() => handleModeSwitch('musculation')}
-              disabled={switchingMode}
-              className={`flex flex-col items-center gap-2 py-4 rounded-xl border-2 transition-all active-scale ${
-                mode === 'musculation'
-                  ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/10'
-                  : 'border-[var(--color-border)] bg-[var(--color-surface-2)]'
-              }`}
-            >
-              <Dumbbell size={24} className={mode === 'musculation' ? 'text-[var(--color-accent)]' : 'text-[var(--color-text-muted)]'} />
-              <span className={`text-sm font-semibold ${mode === 'musculation' ? 'text-[var(--color-accent)]' : 'text-[var(--color-text-muted)]'}`}>
-                Musculation
-              </span>
-              {mode === 'musculation' && (
-                <span className="text-xs text-[var(--color-accent)]">● Actif</span>
-              )}
-            </button>
-            <button
-              onClick={() => handleModeSwitch('running')}
-              disabled={switchingMode}
-              className={`flex flex-col items-center gap-2 py-4 rounded-xl border-2 transition-all active-scale ${
-                mode === 'running'
-                  ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/10'
-                  : 'border-[var(--color-border)] bg-[var(--color-surface-2)]'
-              }`}
-            >
-              <Footprints size={24} className={mode === 'running' ? 'text-[var(--color-accent)]' : 'text-[var(--color-text-muted)]'} />
-              <span className={`text-sm font-semibold ${mode === 'running' ? 'text-[var(--color-accent)]' : 'text-[var(--color-text-muted)]'}`}>
-                Course
-              </span>
-              {mode === 'running' && (
-                <span className="text-xs text-[var(--color-accent)]">● Actif</span>
-              )}
-            </button>
-          </div>
         </div>
 
         {/* App info */}
