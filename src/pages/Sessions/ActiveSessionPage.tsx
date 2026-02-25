@@ -5,7 +5,7 @@ import { useLogSet, useCompleteSessionLog } from '@/hooks/useSessionLog'
 import SetTracker from '@/components/session/SetTracker'
 import RestTimer from '@/components/timer/RestTimer'
 import FeelingRater from '@/components/session/FeelingRater'
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { CheckCircle, ChevronLeft, ChevronRight, UserPlus, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import type { ActiveSet } from '@/types/app'
@@ -28,6 +28,7 @@ export default function ActiveSessionPage() {
   const startTimer = useTimerStore((s) => s.start)
   // startTimer(seconds, mode, onEnd) — mode: 'rest' | 'work'
   const { mutateAsync: logSetToDb } = useLogSet()
+  const lastWeightRef = useRef<number>(0)
   const completeSessionLog = useCompleteSessionLog()
   const [overallFeeling, setOverallFeeling] = useState<number | null>(null)
   const [showComplete, setShowComplete] = useState(false)
@@ -65,11 +66,46 @@ export default function ActiveSessionPage() {
     }
 
     if (currentExercise.repMode === 'duration' && currentExercise.targetDurationSeconds) {
-      // Mode durée : lancer d'abord le timer travail, puis le repos à la fin
+      // Mode durée : enchaînement automatique des séries
+      lastWeightRef.current = set.weight
+
+      const autoNext = () => {
+        const { exercises, currentExerciseIndex: exIdx, sessionLogId: sli, logSet: logSetStore } = useSessionStore.getState()
+        const ex = exercises[exIdx]
+        if (!ex) return
+        const nextNum = ex.completedSets.length + 1
+        if (nextNum > ex.setsPlanned || !sli) return
+
+        const nextSet: ActiveSet = {
+          setNumber: nextNum,
+          weight: lastWeightRef.current,
+          reps: ex.targetDurationSeconds ?? 0,
+          feeling: null,
+          restSeconds: ex.restSeconds,
+          completedAt: new Date().toISOString(),
+        }
+        logSetStore(exIdx, nextSet)
+        logSetToDb({
+          session_log_id: sli,
+          exercise_id: ex.exerciseId,
+          set_number: nextNum,
+          weight: nextSet.weight || null,
+          reps: nextSet.reps || null,
+          feeling: null,
+          rest_seconds: ex.restSeconds,
+        }).catch(() => {})
+
+        startTimer(
+          ex.targetDurationSeconds!,
+          'work',
+          () => startTimer(ex.restSeconds, 'rest', autoNext),
+        )
+      }
+
       startTimer(
         currentExercise.targetDurationSeconds,
         'work',
-        () => startTimer(currentExercise.restSeconds, 'rest'),
+        () => startTimer(currentExercise.restSeconds, 'rest', autoNext),
       )
     } else {
       // Mode reps : lancer directement le repos

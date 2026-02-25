@@ -62,6 +62,7 @@ function BlockEditor({
   onMove: (dir: 'up' | 'down') => void
   canRemove: boolean
 }) {
+  const [rawDuration, setRawDuration] = useState(String(block.duration_s))
   return (
     <div className={`bg-[var(--color-surface-2)] rounded-xl p-3 space-y-2 border-l-4 ${
       block.phase === 'work' ? 'border-[var(--color-accent)]' : 'border-slate-500'
@@ -125,16 +126,40 @@ function BlockEditor({
         <label className="text-xs text-[var(--color-text-muted)]">Durée</label>
         <div className="flex items-center gap-2 mt-1">
           <button
-            onClick={() => onChange({ ...block, duration_s: Math.max(5, block.duration_s - 5) })}
+            onClick={() => {
+              const newD = Math.max(5, block.duration_s - 5)
+              setRawDuration(String(newD))
+              onChange({ ...block, duration_s: newD })
+            }}
             className="w-10 h-10 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] text-lg font-bold text-[var(--color-text)] active-scale flex items-center justify-center flex-shrink-0"
           >
             −
           </button>
-          <span className="flex-1 text-center font-bold text-base text-[var(--color-text)]">
-            {fmtDuration(block.duration_s)}
-          </span>
+          <div className="flex-1 flex flex-col items-center">
+            <input
+              type="text"
+              inputMode="numeric"
+              value={rawDuration}
+              onChange={(e) => setRawDuration(e.target.value.replace(/[^0-9]/g, ''))}
+              onBlur={() => {
+                const parsed = parseInt(rawDuration, 10)
+                if (!isNaN(parsed) && parsed >= 1) {
+                  onChange({ ...block, duration_s: parsed })
+                  setRawDuration(String(parsed))
+                } else {
+                  setRawDuration(String(block.duration_s))
+                }
+              }}
+              className="w-20 text-center font-bold text-base text-[var(--color-text)] bg-transparent outline-none"
+            />
+            <span className="text-xs text-[var(--color-text-muted)]">sec</span>
+          </div>
           <button
-            onClick={() => onChange({ ...block, duration_s: block.duration_s + 5 })}
+            onClick={() => {
+              const newD = block.duration_s + 5
+              setRawDuration(String(newD))
+              onChange({ ...block, duration_s: newD })
+            }}
             className="w-10 h-10 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] text-lg font-bold text-[var(--color-text)] active-scale flex items-center justify-center flex-shrink-0"
           >
             +
@@ -182,10 +207,10 @@ export default function RunningFormPage() {
 
   const [name, setName] = useState('')
   const [type, setType] = useState<RunType>('free')
-  const [targetDistanceKm, setTargetDistanceKm] = useState<number | ''>('')
-  const [targetDurationMin, setTargetDurationMin] = useState<number | ''>('')
-  const [warmupMin, setWarmupMin] = useState<number | ''>(5)
-  const [cooldownMin, setCooldownMin] = useState<number | ''>(5)
+  const [targetDistanceKm, setTargetDistanceKm] = useState<string>('')
+  const [targetDurationMin, setTargetDurationMin] = useState<string>('')
+  const [warmupMin, setWarmupMin] = useState<string>('5')
+  const [cooldownMin, setCooldownMin] = useState<string>('5')
   const [notes, setNotes] = useState('')
   const [blocks, setBlocks] = useState<BlockDraft[]>([newBlock('work'), newBlock('rest')])
   const [saving, setSaving] = useState(false)
@@ -195,10 +220,10 @@ export default function RunningFormPage() {
     if (!existing) return
     setName(existing.name)
     setType(existing.type as RunType)
-    if (existing.target_distance_m) setTargetDistanceKm(existing.target_distance_m / 1000)
-    if (existing.target_duration_s) setTargetDurationMin(Math.round(existing.target_duration_s / 60))
-    if (existing.warmup_duration_s) setWarmupMin(Math.round(existing.warmup_duration_s / 60))
-    if (existing.cooldown_duration_s) setCooldownMin(Math.round(existing.cooldown_duration_s / 60))
+    if (existing.target_distance_m) setTargetDistanceKm(String(existing.target_distance_m / 1000))
+    if (existing.target_duration_s) setTargetDurationMin(String(Math.round(existing.target_duration_s / 60)))
+    if (existing.warmup_duration_s) setWarmupMin(String(Math.round(existing.warmup_duration_s / 60)))
+    if (existing.cooldown_duration_s) setCooldownMin(String(Math.round(existing.cooldown_duration_s / 60)))
     if (existing.notes) setNotes(existing.notes)
     if (existing.running_interval_blocks && existing.running_interval_blocks.length > 0) {
       setBlocks(
@@ -229,8 +254,8 @@ export default function RunningFormPage() {
         type,
         target_distance_m: type === 'distance' && targetDistanceKm !== '' ? Math.round(Number(targetDistanceKm) * 1000) : null,
         target_duration_s: type === 'duration' && targetDurationMin !== '' ? Math.round(Number(targetDurationMin) * 60) : null,
-        warmup_duration_s: type === 'interval' && warmupMin !== '' ? Math.round(Number(warmupMin) * 60) : null,
-        cooldown_duration_s: type === 'interval' && cooldownMin !== '' ? Math.round(Number(cooldownMin) * 60) : null,
+        warmup_duration_s: type === 'interval' && warmupMin !== '' && Number(warmupMin) > 0 ? Math.round(Number(warmupMin) * 60) : null,
+        cooldown_duration_s: type === 'interval' && cooldownMin !== '' && Number(cooldownMin) > 0 ? Math.round(Number(cooldownMin) * 60) : null,
         notes: notes.trim() || null,
       }
       const intervalBlocks = type === 'interval' ? blocks.map((b, i) => ({
@@ -292,7 +317,7 @@ export default function RunningFormPage() {
     <div>
       <PageHeader title={isEdit ? 'Modifier le plan' : 'Nouveau plan'} />
 
-      <div className="px-4 py-4 space-y-5 pb-52">
+      <div className="px-4 py-4 space-y-5">
         {/* Name */}
         <div className="bg-[var(--color-surface)] rounded-2xl p-4 space-y-3">
           <label className="text-xs font-bold uppercase text-[var(--color-text-muted)] tracking-wide">
@@ -339,12 +364,11 @@ export default function RunningFormPage() {
             </label>
             <div className="flex items-center gap-3">
               <input
-                type="number"
+                type="text"
+                inputMode="decimal"
                 value={targetDistanceKm}
-                min={0.5}
-                step={0.5}
                 placeholder="Ex: 10"
-                onChange={(e) => setTargetDistanceKm(e.target.value === '' ? '' : Number(e.target.value))}
+                onChange={(e) => setTargetDistanceKm(e.target.value.replace(/[^0-9.,]/g, ''))}
                 className="flex-1 bg-[var(--color-surface-2)] px-4 py-3 rounded-xl text-sm text-[var(--color-text)] outline-none border border-[var(--color-border)] focus:border-[var(--color-accent)]"
               />
               <span className="text-sm font-bold text-[var(--color-text-muted)]">km</span>
@@ -354,7 +378,7 @@ export default function RunningFormPage() {
               {[5, 10, 21.1, 42.2].map((d) => (
                 <button
                   key={d}
-                  onClick={() => setTargetDistanceKm(d)}
+                  onClick={() => setTargetDistanceKm(String(d))}
                   className="px-3 py-1.5 rounded-lg bg-[var(--color-surface-2)] text-xs font-semibold active-scale text-[var(--color-text-muted)]"
                 >
                   {d}km
@@ -371,12 +395,11 @@ export default function RunningFormPage() {
             </label>
             <div className="flex items-center gap-3">
               <input
-                type="number"
+                type="text"
+                inputMode="numeric"
                 value={targetDurationMin}
-                min={5}
-                step={5}
                 placeholder="Ex: 30"
-                onChange={(e) => setTargetDurationMin(e.target.value === '' ? '' : Number(e.target.value))}
+                onChange={(e) => setTargetDurationMin(e.target.value.replace(/[^0-9]/g, ''))}
                 className="flex-1 bg-[var(--color-surface-2)] px-4 py-3 rounded-xl text-sm text-[var(--color-text)] outline-none border border-[var(--color-border)] focus:border-[var(--color-accent)]"
               />
               <span className="text-sm font-bold text-[var(--color-text-muted)]">min</span>
@@ -385,7 +408,7 @@ export default function RunningFormPage() {
               {[20, 30, 45, 60].map((m) => (
                 <button
                   key={m}
-                  onClick={() => setTargetDurationMin(m)}
+                  onClick={() => setTargetDurationMin(String(m))}
                   className="px-3 py-1.5 rounded-lg bg-[var(--color-surface-2)] text-xs font-semibold active-scale text-[var(--color-text-muted)]"
                 >
                   {m} min
@@ -406,22 +429,20 @@ export default function RunningFormPage() {
                 <div>
                   <label className="text-xs text-[var(--color-text-muted)]">Échauffement (min)</label>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
                     value={warmupMin}
-                    min={0}
-                    step={1}
-                    onChange={(e) => setWarmupMin(e.target.value === '' ? '' : Number(e.target.value))}
+                    onChange={(e) => setWarmupMin(e.target.value.replace(/[^0-9]/g, ''))}
                     className="w-full mt-1 bg-[var(--color-surface-2)] px-3 py-2 rounded-lg text-sm text-[var(--color-text)] outline-none border border-[var(--color-border)] focus:border-[var(--color-accent)]"
                   />
                 </div>
                 <div>
                   <label className="text-xs text-[var(--color-text-muted)]">Retour calme (min)</label>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
                     value={cooldownMin}
-                    min={0}
-                    step={1}
-                    onChange={(e) => setCooldownMin(e.target.value === '' ? '' : Number(e.target.value))}
+                    onChange={(e) => setCooldownMin(e.target.value.replace(/[^0-9]/g, ''))}
                     className="w-full mt-1 bg-[var(--color-surface-2)] px-3 py-2 rounded-lg text-sm text-[var(--color-text)] outline-none border border-[var(--color-border)] focus:border-[var(--color-accent)]"
                   />
                 </div>
@@ -492,13 +513,8 @@ export default function RunningFormPage() {
             className="w-full bg-[var(--color-surface-2)] px-4 py-3 rounded-xl text-sm text-[var(--color-text)] outline-none border border-[var(--color-border)] focus:border-[var(--color-accent)] resize-none"
           />
         </div>
-      </div>
 
-      {/* Sticky save button — au-dessus de la BottomNav */}
-      <div
-        className="fixed left-0 right-0 px-4 pt-3 pb-3 bg-[var(--color-bg)]/90 backdrop-blur-sm border-t border-[var(--color-border)] z-50"
-        style={{ bottom: 'calc(64px + env(safe-area-inset-bottom, 0px))' }}
-      >
+        {/* Save button — flux normal, toujours visible en bas */}
         <button
           onClick={handleSubmit}
           disabled={saving || !name.trim()}

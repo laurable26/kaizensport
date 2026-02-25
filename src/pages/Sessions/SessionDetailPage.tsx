@@ -2,6 +2,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useSession, estimateSessionDuration } from '@/hooks/useSessions'
 import { useStartSessionLog } from '@/hooks/useSessionLog'
 import { useSessionStore } from '@/store/sessionStore'
+import { useRunningStore } from '@/store/runningStore'
 import { useFriends } from '@/hooks/useFriends'
 import { useShareSession } from '@/hooks/useSharedSessions'
 import PageHeader from '@/components/layout/PageHeader'
@@ -27,6 +28,10 @@ export default function SessionDetailPage() {
 
   const handleStart = async () => {
     if (!session || !id) return
+    if (useRunningStore.getState().isActive) {
+      toast.error('Une course est déjà en cours. Arrête-la d\'abord.')
+      return
+    }
 
     try {
       const log = await startSessionLog.mutateAsync(id)

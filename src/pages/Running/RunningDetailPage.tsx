@@ -1,6 +1,7 @@
 import { useNavigate, useParams } from 'react-router-dom'
 import { useRunningSession, useStartRunningLog } from '@/hooks/useRunning'
 import { useRunningStore } from '@/store/runningStore'
+import { useSessionStore } from '@/store/sessionStore'
 import PageHeader from '@/components/layout/PageHeader'
 import { Footprints, MapPin, Timer, Zap, ChevronRight, Edit2, Play } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -84,6 +85,10 @@ export default function RunningDetailPage() {
     (session.cooldown_duration_s ?? 0)
 
   const handleStart = async () => {
+    if (useSessionStore.getState().isActive) {
+      toast.error('Une séance muscu est déjà en cours. Termine-la d\'abord.')
+      return
+    }
     try {
       const log = await startRunningLog.mutateAsync(session.id)
 

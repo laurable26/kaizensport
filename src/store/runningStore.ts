@@ -15,6 +15,7 @@ interface RunningStore {
   // Temps écoulé
   elapsedSeconds: number
   _startTime: number | null          // Date.now() au début pour un chrono précis
+  _blockStartTime: number | null     // Date.now() au début de chaque bloc pour précision
   _intervalId: ReturnType<typeof setInterval> | null
 
   // GPS et statistiques
@@ -54,6 +55,7 @@ const initialState = {
   sessionType: 'free' as RunningSession['type'],
   elapsedSeconds: 0,
   _startTime: null as number | null,
+  _blockStartTime: null as number | null,
   _intervalId: null,
   gpsPoints: [] as GpsPoint[],
   distanceM: 0,
@@ -77,6 +79,7 @@ export const useRunningStore = create<RunningStore>((set, get) => ({
       : 'free'
 
     const startTime = Date.now()
+    const blockStartTime = Date.now()
     const intervalId = setInterval(() => get()._tick(), 500) // 500ms pour précision accrue
 
     // Vibration courte = début de course
@@ -102,6 +105,7 @@ export const useRunningStore = create<RunningStore>((set, get) => ({
       phase,
       elapsedSeconds: 0,
       _startTime: startTime,
+      _blockStartTime: blockStartTime,
       gpsPoints: [],
       distanceM: 0,
       elevationGainM: 0,
@@ -162,7 +166,7 @@ export const useRunningStore = create<RunningStore>((set, get) => ({
   },
 
   _tick: () => {
-    const { _startTime, sessionType, blockSecondsRemaining, blocks } = get()
+    const { _startTime, _blockStartTime, sessionType, blocks, currentBlockIndex } = get()
 
     // Chrono précis basé sur Date.now()
     if (_startTime !== null) {
@@ -171,10 +175,14 @@ export const useRunningStore = create<RunningStore>((set, get) => ({
     }
 
     if ((sessionType === 'interval' || blocks.length > 0) && blocks.length > 0) {
-      if (blockSecondsRemaining <= 0.5) {
-        get()._advanceBlock()
-      } else {
-        set((s) => ({ blockSecondsRemaining: s.blockSecondsRemaining - 0.5 }))
+      const currentBlock = blocks[currentBlockIndex]
+      if (currentBlock && _blockStartTime !== null) {
+        const elapsed = (Date.now() - _blockStartTime) / 1000
+        const remaining = Math.max(0, currentBlock.duration_s - elapsed)
+        set({ blockSecondsRemaining: remaining })
+        if (remaining <= 0) {
+          get()._advanceBlock()
+        }
       }
     }
   },
@@ -208,6 +216,7 @@ export const useRunningStore = create<RunningStore>((set, get) => ({
       set({
         currentBlockIndex: nextIndex,
         blockSecondsRemaining: nextBlock.duration_s,
+        _blockStartTime: Date.now(),
         phase,
       })
     }

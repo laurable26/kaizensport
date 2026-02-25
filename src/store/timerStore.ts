@@ -45,11 +45,11 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
   },
 
   skip: () => {
-    const { onWorkEnd, mode } = get()
+    const { onWorkEnd } = get()
     get()._stop()
     set({ isActive: false, secondsRemaining: 0, onWorkEnd: null })
-    // Si on skip un timer travail, on déclenche quand même le callback (pour lancer le repos)
-    if (mode === 'work' && onWorkEnd) {
+    // Déclencher le callback pour tous les modes (travail ou repos)
+    if (onWorkEnd) {
       onWorkEnd()
     }
   },
@@ -74,6 +74,8 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
         // Fin repos : double vibration + double beep
         if (navigator.vibrate) navigator.vibrate([200, 100, 200])
         playDoubleBeep()
+        // Déclencher le callback (enchaîner la prochaine série)
+        if (onWorkEnd) onWorkEnd()
       } else {
         // Fin travail : vibration simple + beep aigu
         if (navigator.vibrate) navigator.vibrate([100, 50, 100])

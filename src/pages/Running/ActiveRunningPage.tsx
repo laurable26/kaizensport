@@ -29,6 +29,20 @@ function formatDistance(metres: number): string {
   return `${(metres / 1000).toFixed(2)} km`
 }
 
+function formatBlockRemaining(seconds: number): string {
+  const s = Math.floor(Math.max(0, seconds))
+  const m = Math.floor(s / 60)
+  const sec = s % 60
+  return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
+}
+
+function fmtDur(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`
+  const m = Math.floor(seconds / 60)
+  const s = seconds % 60
+  return s > 0 ? `${m}:${String(s).padStart(2, '0')}` : `${m} min`
+}
+
 // ─── Barre de progression d'un bloc fractionné ────────────────────────────────
 
 function IntervalBlock() {
@@ -129,6 +143,9 @@ export default function ActiveRunningPage() {
     bestPaceSecPerKm,
     gpsPoints,
     phase,
+    blocks,
+    currentBlockIndex,
+    blockSecondsRemaining,
     endRun,
     reset,
   } = useRunningStore()
@@ -159,12 +176,30 @@ export default function ActiveRunningPage() {
     }
   }, [isActive])
 
+  // Re-acquérir le WakeLock après déverrouillage écran
+  useEffect(() => {
+    if (!isActive || !('wakeLock' in navigator)) return
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        ;(navigator as any).wakeLock.request('screen')
+          .then((s: WakeLockSentinel) => { wakeLockRef.current = s })
+          .catch(() => {})
+      }
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [isActive])
+
   // Rediriger si aucune course active
   useEffect(() => {
     if (!isActive) navigate('/running', { replace: true })
   }, [isActive, navigate])
 
   if (!isActive) return null
+
+  const isIntervalSession = sessionType === 'interval' && blocks.length > 0
+  const currentBlock = blocks[currentBlockIndex] ?? null
+  const nextBlock = blocks[currentBlockIndex + 1] ?? null
 
   const handleStop = () => setShowEndModal(true)
 
@@ -239,51 +274,96 @@ export default function ActiveRunningPage() {
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 pb-8">
-        {/* Chrono principal */}
-        <div className="text-center py-2">
-          <p className="font-mono text-5xl font-bold tracking-tight text-[var(--color-text)]">
-            {formatElapsed(elapsedSeconds)}
-          </p>
-        </div>
 
-        {/* Stats principales — 3 colonnes */}
-        <div className="grid grid-cols-3 gap-3">
-          <div className="bg-[var(--color-surface)] rounded-2xl p-4 text-center">
-            <p className="text-2xl font-bold">{formatDistance(distanceM)}</p>
-            <p className="text-xs text-[var(--color-text-muted)] mt-1">Distance</p>
-          </div>
-          <div className="bg-[var(--color-surface)] rounded-2xl p-4 text-center">
-            <p className="text-2xl font-bold" style={{ color: paceColor }}>
-              {formatPace(currentPaceSecPerKm)}
-            </p>
-            <p className="text-xs text-[var(--color-text-muted)] mt-1">Allure /km</p>
-          </div>
-          <div className="bg-[var(--color-surface)] rounded-2xl p-4 text-center">
-            <p className="text-2xl font-bold">{formatPace(avgPaceSecPerKm)}</p>
-            <p className="text-xs text-[var(--color-text-muted)] mt-1">Moy. /km</p>
-          </div>
-        </div>
-
-        {/* Stats secondaires */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="bg-[var(--color-surface)] rounded-2xl p-3 flex items-center gap-3">
-            <Zap size={18} className="text-[var(--color-accent)] flex-shrink-0" />
-            <div>
-              <p className="font-bold text-sm">{formatPace(bestPaceSecPerKm)}/km</p>
-              <p className="text-xs text-[var(--color-text-muted)]">Meilleure allure</p>
+        {isIntervalSession ? (
+          <>
+            {/* Chrono total — petit, secondaire */}
+            <div className="text-center">
+              <p className="font-mono text-lg text-[var(--color-text-muted)]">
+                {formatElapsed(elapsedSeconds)}
+              </p>
             </div>
-          </div>
-          <div className="bg-[var(--color-surface)] rounded-2xl p-3 flex items-center gap-3">
-            <ChevronUp size={18} className="text-[var(--color-accent)] flex-shrink-0" />
-            <div>
-              <p className="font-bold text-sm">+{Math.round(elevationGainM)} m</p>
-              <p className="text-xs text-[var(--color-text-muted)]">Dénivelé +</p>
-            </div>
-          </div>
-        </div>
 
-        {/* Bloc fractionné / warmup / cooldown */}
-        <IntervalBlock />
+            {/* Hero fractionné — grand countdown centré */}
+            {phase === 'complete' ? (
+              <div className="flex flex-col items-center justify-center text-center space-y-3 py-10">
+                <p className="text-5xl">✅</p>
+                <p className="font-bold text-xl">Fractionné terminé !</p>
+              </div>
+            ) : currentBlock ? (
+              <div className="flex flex-col items-center justify-center text-center space-y-3 py-8">
+                <p className="text-sm text-[var(--color-text-muted)] font-semibold uppercase tracking-wide">
+                  Bloc {currentBlockIndex + 1} / {blocks.length}
+                </p>
+                <h2 className="text-4xl font-black tracking-tight">
+                  {currentBlock.label ?? (currentBlock.phase === 'work' ? 'Travail' : 'Repos')}
+                </h2>
+                <p className="font-mono text-8xl font-black tracking-tighter text-[var(--color-accent)]">
+                  {formatBlockRemaining(blockSecondsRemaining)}
+                </p>
+                {nextBlock && (
+                  <p className="text-sm text-[var(--color-text-muted)]">
+                    Suivant : {nextBlock.label ?? (nextBlock.phase === 'work' ? 'Travail' : 'Repos')} — {fmtDur(nextBlock.duration_s)}
+                  </p>
+                )}
+              </div>
+            ) : null}
+
+            {/* Distance compacte */}
+            <div className="text-center">
+              <p className="text-xl font-bold">{formatDistance(distanceM)}</p>
+              <p className="text-xs text-[var(--color-text-muted)]">Distance</p>
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Chrono principal */}
+            <div className="text-center py-2">
+              <p className="font-mono text-5xl font-bold tracking-tight text-[var(--color-text)]">
+                {formatElapsed(elapsedSeconds)}
+              </p>
+            </div>
+
+            {/* Stats principales — 3 colonnes */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="bg-[var(--color-surface)] rounded-2xl p-4 text-center">
+                <p className="text-2xl font-bold">{formatDistance(distanceM)}</p>
+                <p className="text-xs text-[var(--color-text-muted)] mt-1">Distance</p>
+              </div>
+              <div className="bg-[var(--color-surface)] rounded-2xl p-4 text-center">
+                <p className="text-2xl font-bold" style={{ color: paceColor }}>
+                  {formatPace(currentPaceSecPerKm)}
+                </p>
+                <p className="text-xs text-[var(--color-text-muted)] mt-1">Allure /km</p>
+              </div>
+              <div className="bg-[var(--color-surface)] rounded-2xl p-4 text-center">
+                <p className="text-2xl font-bold">{formatPace(avgPaceSecPerKm)}</p>
+                <p className="text-xs text-[var(--color-text-muted)] mt-1">Moy. /km</p>
+              </div>
+            </div>
+
+            {/* Stats secondaires */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-[var(--color-surface)] rounded-2xl p-3 flex items-center gap-3">
+                <Zap size={18} className="text-[var(--color-accent)] flex-shrink-0" />
+                <div>
+                  <p className="font-bold text-sm">{formatPace(bestPaceSecPerKm)}/km</p>
+                  <p className="text-xs text-[var(--color-text-muted)]">Meilleure allure</p>
+                </div>
+              </div>
+              <div className="bg-[var(--color-surface)] rounded-2xl p-3 flex items-center gap-3">
+                <ChevronUp size={18} className="text-[var(--color-accent)] flex-shrink-0" />
+                <div>
+                  <p className="font-bold text-sm">+{Math.round(elevationGainM)} m</p>
+                  <p className="text-xs text-[var(--color-text-muted)]">Dénivelé +</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Bloc fractionné / warmup / cooldown */}
+            <IntervalBlock />
+          </>
+        )}
 
         {/* Carte GPS */}
         <div className="bg-[var(--color-surface)] rounded-2xl overflow-hidden">

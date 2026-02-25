@@ -291,7 +291,10 @@ export default function DashboardPage() {
             {recentAll.map((item) => (
               <div
                 key={`${item.type}-${item.id}`}
-                onClick={() => navigate(item.type === 'running' ? '/running/history' : `/history/${item.id}`)}
+                onClick={() => item.type === 'running'
+                  ? navigate('/running/history', { state: { openLogId: item.id } })
+                  : navigate(`/history/${item.id}`)
+                }
                 className="bg-[var(--color-surface)] rounded-2xl p-4 flex items-center gap-3 active-scale cursor-pointer"
               >
                 <div className={`w-2 h-2 rounded-full flex-shrink-0 ${

@@ -1,10 +1,10 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Timer, Calendar, Users, Footprints } from 'lucide-react'
+import { LayoutDashboard, Timer, Calendar, Users, Dumbbell } from 'lucide-react'
 
 const NAV_ITEMS = [
   { to: '/', icon: LayoutDashboard, label: 'Accueil' },
+  { to: '/exercises', icon: Dumbbell, label: 'Exercices' },
   { to: '/sessions', icon: Timer, label: 'Séances' },
-  { to: '/running', icon: Footprints, label: 'Course' },
   { to: '/schedule', icon: Calendar, label: 'Planning' },
   { to: '/friends', icon: Users, label: 'Amis' },
 ]

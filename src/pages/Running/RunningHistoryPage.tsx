@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { useRunningLogs, useRunningLogDetail, useRunningPRs, useRunningStats } from '@/hooks/useRunning'
 import PageHeader from '@/components/layout/PageHeader'
 import { Footprints, Trophy, TrendingUp, Calendar, ChevronRight } from 'lucide-react'
@@ -127,8 +128,10 @@ function LogDetail({ logId, onClose }: { logId: string; onClose: () => void }) {
 type Tab = 'history' | 'prs' | 'stats'
 
 export default function RunningHistoryPage() {
+  const location = useLocation()
+  const { openLogId } = (location.state ?? {}) as { openLogId?: string }
   const [tab, setTab] = useState<Tab>('history')
-  const [selectedLogId, setSelectedLogId] = useState<string | null>(null)
+  const [selectedLogId, setSelectedLogId] = useState<string | null>(openLogId ?? null)
 
   const { data: logs = [], isLoading: logsLoading } = useRunningLogs(100)
   const { data: prs = [] } = useRunningPRs()
