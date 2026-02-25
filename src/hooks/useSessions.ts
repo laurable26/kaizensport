@@ -131,7 +131,6 @@ export function useSession(id: string | undefined) {
         `)
         .eq('id', id)
         .order('block_index', { referencedTable: 'session_blocks' })
-        .order('order_index', { referencedTable: 'session_block_exercises' })
         .single()
       if (error) throw error
       const result = data as SessionWithBlocks
