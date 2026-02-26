@@ -13,6 +13,7 @@ export type FriendRunningStats = {
   total_runs: number
   total_distance_m: number
   total_duration_s: number
+  best_pace_s_per_km: number | null
   last_run_at: string | null
 }
 

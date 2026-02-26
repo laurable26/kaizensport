@@ -40,11 +40,17 @@ function formatDistance(metres: number): string {
 }
 
 function formatDurationShort(seconds: number): string {
-  if (seconds < 60) return `${seconds}s`
-  const h = Math.floor(seconds / 3600)
-  const m = Math.floor((seconds % 3600) / 60)
-  if (h > 0) return `${h}h${m > 0 ? String(m).padStart(2, '0') : ''}`
-  return `${m} min`
+  const totalMin = Math.round(seconds / 60)
+  const h = Math.floor(totalMin / 60)
+  const m = totalMin % 60
+  return m > 0 ? `${h}h${String(m).padStart(2, '0')}` : `${h}h`
+}
+
+function formatPace(secPerKm: number | null | undefined): string {
+  if (!secPerKm || secPerKm <= 0 || secPerKm >= 3600) return '--:--'
+  const m = Math.floor(secPerKm / 60)
+  const s = Math.round(secPerKm % 60)
+  return `${m}:${String(s).padStart(2, '0')}/km`
 }
 
 function FriendStatsDrawer({ friend, onClose }: { friend: Profile; onClose: () => void }) {
@@ -143,6 +149,12 @@ function FriendStatsDrawer({ friend, onClose }: { friend: Profile; onClose: () =
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-[var(--color-text-muted)]">Temps total</span>
                   <span className="font-semibold text-sm">{formatDurationShort(stats.running.total_duration_s)}</span>
+                </div>
+              )}
+              {stats.running.best_pace_s_per_km != null && stats.running.best_pace_s_per_km > 0 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-[var(--color-text-muted)]">Meilleure allure</span>
+                  <span className="font-semibold text-sm">{formatPace(stats.running.best_pace_s_per_km)}</span>
                 </div>
               )}
               {stats.running.last_run_at && (
