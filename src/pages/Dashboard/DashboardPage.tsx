@@ -5,6 +5,7 @@ import { useSessionLogs } from '@/hooks/useSessionLog'
 import { useWeekSchedule } from '@/hooks/useSchedule'
 import { useRunningStats, useRunningLogs, useStartRunningLog } from '@/hooks/useRunning'
 import { useRunningStore } from '@/store/runningStore'
+import { useAvatarUrl } from '@/hooks/useAvatarUrl'
 import { useNavigate } from 'react-router-dom'
 import { Play, Calendar, Dumbbell, User, Footprints, TrendingUp } from 'lucide-react'
 
@@ -54,6 +55,13 @@ export default function DashboardPage() {
     if (!l.completed_at) return acc
     return acc + differenceInMinutes(new Date(l.completed_at), new Date(l.started_at))
   }, 0)
+
+  const totalTimeMin = completedLogs.reduce((acc, l) => {
+    if (!l.completed_at) return acc
+    return acc + differenceInMinutes(new Date(l.completed_at), new Date(l.started_at))
+  }, 0)
+
+  const avatarUrl = useAvatarUrl(user?.user_metadata?.avatar_url)
 
   const displayName = user?.user_metadata?.full_name
     ?? user?.user_metadata?.name
@@ -117,9 +125,13 @@ export default function DashboardPage() {
         </div>
         <button
           onClick={() => navigate('/profile')}
-          className="w-10 h-10 rounded-full bg-[var(--color-surface)] flex items-center justify-center active-scale flex-shrink-0 mt-1"
+          className="w-10 h-10 rounded-full bg-[var(--color-surface)] flex items-center justify-center active-scale flex-shrink-0 mt-1 overflow-hidden"
         >
-          <User size={18} className="text-[var(--color-text-muted)]" />
+          {avatarUrl ? (
+            <img src={avatarUrl} alt="Profil" className="w-full h-full object-cover" />
+          ) : (
+            <User size={18} className="text-[var(--color-text-muted)]" />
+          )}
         </button>
       </div>
 
@@ -147,8 +159,10 @@ export default function DashboardPage() {
             <p className="text-xs text-[var(--color-text-muted)] mt-1 leading-tight">Cette semaine</p>
           </div>
           <div className="bg-[var(--color-surface)] rounded-2xl p-4">
-            <p className="text-2xl font-black text-[var(--color-accent)]">{completedLogs.length}</p>
-            <p className="text-xs text-[var(--color-text-muted)] mt-1 leading-tight">Total réalisées</p>
+            <p className="text-lg font-black text-[var(--color-accent)] leading-tight">
+              {totalTimeMin > 0 ? formatMinutes(totalTimeMin) : '—'}
+            </p>
+            <p className="text-xs text-[var(--color-text-muted)] mt-1 leading-tight">Temps total</p>
           </div>
           <div className="bg-[var(--color-surface)] rounded-2xl p-4">
             <p className="text-lg font-black text-[var(--color-accent)] leading-tight">
