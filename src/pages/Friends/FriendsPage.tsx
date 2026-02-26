@@ -107,10 +107,14 @@ function FriendStatsDrawer({ friend, onClose }: { friend: Profile; onClose: () =
                   </span>
                 </div>
               )}
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-[var(--color-text-muted)]">Total réalisées</span>
-                <span className="font-bold">{stats.muscu.total_sessions}</span>
-              </div>
+              {(stats.muscu.total_time_s ?? 0) > 0 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-[var(--color-text-muted)]">Temps total</span>
+                  <span className="font-semibold text-sm">
+                    {formatDurationShort(stats.muscu.total_time_s)}
+                  </span>
+                </div>
+              )}
               {stats.muscu.last_session_at && (
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-[var(--color-text-muted)]">Dernière séance</span>

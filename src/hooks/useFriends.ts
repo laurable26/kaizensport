@@ -5,6 +5,7 @@ export type FriendMuscuStats = {
   total_sessions: number
   sessions_this_week: number
   weekly_duration_s: number
+  total_time_s: number
   last_session_at: string | null
 }
 
