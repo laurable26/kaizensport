@@ -154,17 +154,17 @@ export default function DashboardPage() {
           Musculation
         </h2>
         <div className="grid grid-cols-3 gap-2">
-          <div className="bg-[var(--color-surface)] rounded-2xl p-4">
+          <div className="bg-[var(--color-surface)] rounded-2xl p-4 text-center">
             <p className="text-2xl font-black text-[var(--color-accent)]">{completedThisWeek}</p>
             <p className="text-xs text-[var(--color-text-muted)] mt-1 leading-tight">Cette semaine</p>
           </div>
-          <div className="bg-[var(--color-surface)] rounded-2xl p-4">
+          <div className="bg-[var(--color-surface)] rounded-2xl p-4 text-center">
             <p className="text-lg font-black text-[var(--color-accent)] leading-tight">
               {totalTimeMin > 0 ? formatMinutes(totalTimeMin) : '—'}
             </p>
             <p className="text-xs text-[var(--color-text-muted)] mt-1 leading-tight">Temps total</p>
           </div>
-          <div className="bg-[var(--color-surface)] rounded-2xl p-4">
+          <div className="bg-[var(--color-surface)] rounded-2xl p-4 text-center">
             <p className="text-lg font-black text-[var(--color-accent)] leading-tight">
               {timeThisWeekMin > 0 ? formatMinutes(timeThisWeekMin) : '—'}
             </p>
